@@ -27,6 +27,7 @@ const (
 	StatusUnderReview RequestStatus = "UNDER_REVIEW"
 	StatusApproved    RequestStatus = "APPROVED"
 	StatusRejected    RequestStatus = "REJECTED"
+	StatusClosed      RequestStatus = "CLOSED"
 )
 
 // Work Order Lifecycle Statuses

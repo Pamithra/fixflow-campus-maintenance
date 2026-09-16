@@ -124,3 +124,34 @@ func GetMyRequests(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"tickets": tickets})
 }
+
+type RatingPayload struct {
+	Rating   int    `json:"rating" binding:"required,min=1,max=5"`
+	Feedback string `json:"feedback"`
+}
+
+// SubmitFeedback allows students to rate resolved issues
+func SubmitFeedback(c *gin.Context) {
+	requestID := c.Param("id")
+
+	var payload RatingPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Rating must be between 1 and 5 stars"})
+		return
+	}
+
+	var wo models.WorkOrder
+	if err := database.DB.Where("request_id = ?", requestID).First(&wo).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Associated work order not found"})
+		return
+	}
+
+	wo.Rating = payload.Rating
+	wo.FeedbackComments = payload.Feedback
+	database.DB.Save(&wo)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Thank you! Your feedback has been recorded.",
+		"rating":  payload.Rating,
+	})
+}

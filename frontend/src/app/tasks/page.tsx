@@ -167,9 +167,14 @@ export default function TechnicianTasksPage() {
               <div className="space-y-4">
                 {tasks.map((wo) => {
                   const req = wo.Request || wo.request;
+                  const room = req?.Room || req?.room;
+                  const floor = room?.Floor || room?.floor;
+                  const building = floor?.Building || floor?.building;
+                  const reporter = req?.Reporter || req?.reporter;
+                  const asset = req?.Asset || req?.asset;
+
                   const sla = getRemainingSLA(wo.sla_deadline || wo.SLADeadline);
-                  const isStarted = wo.status === 'IN_PROGRESS';
-                  const isCompleted = wo.status === 'COMPLETED' || wo.status === 'VERIFIED';
+                  const isCompleted = wo.status === 'COMPLETED' || wo.status === 'CLOSED';
 
                   return (
                     <div
@@ -190,7 +195,7 @@ export default function TechnicianTasksPage() {
                             Status: {wo.status}
                           </Badge>
                           <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-300">
-                            {req?.Room?.Floor?.Building?.name} • Room {req?.Room?.room_number}
+                            {building?.name || 'Faculty'} • Room {room?.room_number || 'General'}
                           </Badge>
                         </div>
 
@@ -212,9 +217,9 @@ export default function TechnicianTasksPage() {
 
                       {/* Equipment & Description */}
                       <div className="space-y-1">
-                        {req?.Asset && (
+                        {asset && (
                           <div className="text-xs text-indigo-300 font-semibold flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5" /> Target Equipment: {req.Asset.name} [{req.Asset.asset_tag}]
+                            <Sparkles className="w-3.5 h-3.5" /> Target Equipment: {asset.name} [{asset.asset_tag}]
                           </div>
                         )}
                         <p className="text-sm text-slate-200">{req?.description}</p>
@@ -231,8 +236,8 @@ export default function TechnicianTasksPage() {
                           </div>
                         )}
                         <div className="text-xs text-slate-400 space-y-1">
-                          <div>Reported by: <strong className="text-slate-300">{req?.Reporter?.full_name}</strong></div>
-                          <div>Room Type: <strong className="text-slate-300">{req?.Room?.room_type}</strong></div>
+                          <div>Reported by: <strong className="text-slate-300">{reporter?.full_name || 'Campus User'}</strong></div>
+                          <div>Room Type: <strong className="text-slate-300">{room?.room_type || 'General Facility'}</strong></div>
                         </div>
                       </div>
 

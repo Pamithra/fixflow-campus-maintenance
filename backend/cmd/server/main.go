@@ -9,6 +9,7 @@ import (
 	"fixflow-backend/internal/handlers"
 	"fixflow-backend/internal/middleware"
 	"fixflow-backend/internal/models"
+	"fixflow-backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,16 +25,16 @@ func main() {
 		log.Fatalf("Database connection failed: %v", err)
 	}
 
+	// Start Background SLA Escalation Goroutine
+	services.StartSLAWorker()
+
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	r := gin.Default()
-
-	// Static route to serve uploaded incident photos
 	r.Static("/uploads", "./uploads")
 
-	// Dynamic CORS
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", cfg.ClientOrigin)
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
@@ -56,39 +57,39 @@ func main() {
 			})
 		})
 
-		// Public Auth
 		api.POST("/auth/login", handlers.Login(cfg))
 
-		// Protected Routes
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg))
 		{
 			protected.GET("/auth/me", handlers.GetMe)
 			protected.GET("/facilities", handlers.GetCampusHierarchy)
-
-			// Photo Upload
+			protected.GET("/assets/:tag", handlers.GetAssetByTag)
 			protected.POST("/upload", handlers.UploadImage)
 
-			// Incident Requests
+			// Incident Requests & Feedback
 			protected.POST("/requests", handlers.CreateRequest)
 			protected.GET("/requests/my", handlers.GetMyRequests)
+			protected.POST("/requests/:id/feedback", handlers.SubmitFeedback)
 
-			// Admin Incident Command Center (Protected by RBAC)
-			adminOnly := protected.Group("/admin")
-			adminOnly.Use(middleware.RequireRole(models.RoleAdmin))
-			{
-				adminOnly.GET("/incidents", handlers.GetAllIncidents)
-				adminOnly.GET("/incidents/:id/recommendations", handlers.GetRecommendations)
-				adminOnly.POST("/assign", handlers.AssignWorkOrder)
-			}
-
-			// Technician Field Workbench Routes (Protected by RBAC)
+			// Technician Field Workbench
 			techOnly := protected.Group("/technician")
 			techOnly.Use(middleware.RequireRole(models.RoleTechnician))
 			{
 				techOnly.GET("/tasks", handlers.GetTechnicianTasks)
 				techOnly.PATCH("/tasks/:id/start", handlers.StartTask)
 				techOnly.POST("/tasks/:id/complete", handlers.CompleteTask)
+			}
+
+			// Admin Command Center & Verification
+			adminOnly := protected.Group("/admin")
+			adminOnly.Use(middleware.RequireRole(models.RoleAdmin))
+			{
+				adminOnly.GET("/incidents", handlers.GetAllIncidents)
+				adminOnly.GET("/incidents/:id/recommendations", handlers.GetRecommendations)
+				adminOnly.POST("/assign", handlers.AssignWorkOrder)
+				adminOnly.POST("/work-orders/:id/verify", handlers.VerifyAndCloseWorkOrder)
+				adminOnly.POST("/work-orders/:id/reopen", handlers.ReopenWorkOrder)
 			}
 		}
 	}

@@ -7,11 +7,14 @@ import {
   AlertOctagon, 
   CheckCircle2, 
   Clock, 
+  Eye, 
   Filter, 
+  History, 
   Hourglass, 
   Loader2, 
   MapPin, 
   RefreshCw, 
+  RotateCcw, 
   Shield, 
   Sparkles, 
   UserCheck, 
@@ -33,6 +36,10 @@ export default function AdminDashboardPage() {
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [assigning, setAssigning] = useState(false);
+
+  // Verification & Audit Modal State
+  const [inspectTicket, setInspectTicket] = useState<any | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const [successToast, setSuccessToast] = useState('');
 
   // Filter State
@@ -40,8 +47,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     loadIncidents();
-    // Refresh countdowns every minute
-    const interval = setInterval(loadIncidents, 60000);
+    const interval = setInterval(loadIncidents, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -53,19 +59,15 @@ export default function AdminDashboardPage() {
       .finally(() => setLoading(false));
   };
 
-  // Helper to calculate and format remaining SLA time
   const getRemainingSLA = (deadlineStr?: string) => {
     if (!deadlineStr) return null;
     const diff = new Date(deadlineStr).getTime() - Date.now();
-    if (diff <= 0) {
-      return { text: 'SLA BREACHED', breached: true };
-    }
+    if (diff <= 0) return { text: 'SLA BREACHED', breached: true };
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     return { text: `${hours}h ${minutes}m remaining`, breached: false };
   };
 
-  // Open Dispatch Modal & Fetch Smart Recommendations
   const openDispatch = (ticket: any) => {
     setSelectedTicket(ticket);
     setLoadingRecs(true);
@@ -77,7 +79,6 @@ export default function AdminDashboardPage() {
       .finally(() => setLoadingRecs(false));
   };
 
-  // Assign Technician
   const handleAssign = async (techId: number) => {
     if (!selectedTicket) return;
     setAssigning(true);
@@ -91,7 +92,7 @@ export default function AdminDashboardPage() {
       setSuccessToast(res.data.message);
       setSelectedTicket(null);
       loadIncidents();
-      setTimeout(() => setSuccessToast(''), 6000);
+      setTimeout(() => setSuccessToast(''), 5000);
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to dispatch technician');
     } finally {
@@ -99,10 +100,45 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // KPI Calculations
+  // Verify and Close Job
+  const handleVerify = async (workOrderId: number) => {
+    setVerifying(true);
+    try {
+      const res = await api.post(`/admin/work-orders/${workOrderId}/verify`);
+      setSuccessToast(res.data.message);
+      setInspectTicket(null);
+      loadIncidents();
+      setTimeout(() => setSuccessToast(''), 5000);
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to verify work order');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // Reopen Job
+  const handleReopen = async (workOrderId: number) => {
+    setVerifying(true);
+    try {
+      const res = await api.post(`/admin/work-orders/${workOrderId}/reopen`);
+      setSuccessToast('Ticket has been reopened and returned to technician.');
+      setInspectTicket(null);
+      loadIncidents();
+      setTimeout(() => setSuccessToast(''), 5000);
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to reopen work order');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // KPIs
   const totalCount = incidents.length;
   const pendingCount = incidents.filter((i) => i.status === 'REPORTED').length;
-  const criticalCount = incidents.filter((i) => i.calculated_priority === 'CRITICAL' && i.status === 'REPORTED').length;
+  const readyVerifyCount = incidents.filter((i) => {
+    const wo = i.work_order || i.WorkOrder;
+    return wo?.status === 'COMPLETED';
+  }).length;
   const activeJobsCount = incidents.filter((i) => i.status === 'APPROVED').length;
 
   const filteredIncidents = incidents.filter((i) => {
@@ -137,14 +173,11 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Live Assignment Toast / Alert */}
+        {/* Live Notification Banner */}
         {successToast && (
-          <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center gap-3 animate-in fade-in">
             <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
-            <div className="space-y-0.5">
-              <p className="font-semibold text-sm">Dispatched Successfully!</p>
-              <p className="text-xs text-emerald-300/80">{successToast}</p>
-            </div>
+            <span className="font-medium text-sm">{successToast}</span>
           </div>
         )}
 
@@ -166,10 +199,8 @@ export default function AdminDashboardPage() {
 
           <Card className="bg-slate-900/60 border-slate-800">
             <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs text-slate-400">Critical / Emergency</CardDescription>
-              <CardTitle className="text-2xl font-extrabold text-rose-500 flex items-center gap-1">
-                {criticalCount} {criticalCount > 0 && <AlertOctagon className="w-4 h-4 animate-pulse" />}
-              </CardTitle>
+              <CardDescription className="text-xs text-slate-400">Ready for Verification</CardDescription>
+              <CardTitle className="text-2xl font-extrabold text-emerald-400">{readyVerifyCount}</CardTitle>
             </CardHeader>
           </Card>
 
@@ -204,7 +235,7 @@ export default function AdminDashboardPage() {
           <CardHeader>
             <CardTitle className="text-white text-base">Campus Incidents Queue</CardTitle>
             <CardDescription className="text-slate-400 text-xs">
-              Live tracking of reported campus issues, SLA timers, and technician assignments
+              Live tracking of reported campus issues, SLA timers, and technician completion evidence
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -219,11 +250,12 @@ export default function AdminDashboardPage() {
             ) : (
               <div className="space-y-3">
                 {filteredIncidents.map((t) => {
-                  // Resolve nested work order and technician data regardless of casing
                   const wo = t.work_order || t.WorkOrder;
                   const tech = wo?.technician || wo?.Technician;
                   const slaDeadline = wo?.sla_deadline || wo?.SLADeadline;
                   const sla = getRemainingSLA(slaDeadline);
+                  const isCompleted = wo?.status === 'COMPLETED';
+                  const isClosed = t.status === 'CLOSED' || wo?.status === 'CLOSED';
 
                   return (
                     <div
@@ -263,7 +295,7 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
 
-                      {/* Status / Dispatch Action */}
+                      {/* Status / Actions */}
                       <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-end sm:items-center gap-2 shrink-0">
                         {t.status === 'REPORTED' ? (
                           <Button
@@ -272,15 +304,24 @@ export default function AdminDashboardPage() {
                           >
                             <Zap className="w-3.5 h-3.5" /> Dispatch Tech
                           </Button>
+                        ) : isCompleted ? (
+                          <Button
+                            onClick={() => setInspectTicket(t)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 h-auto flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 animate-pulse"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> Inspect & Verify
+                          </Button>
+                        ) : isClosed ? (
+                          <Badge className="bg-slate-800 text-slate-400 border border-slate-700 text-xs px-3 py-1 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Resolved & Verified
+                          </Badge>
                         ) : (
                           <div className="flex flex-col items-end gap-1.5">
-                            {/* Assigned Technician Pill */}
                             <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs px-2.5 py-1 flex items-center gap-1.5">
                               <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
-                              Assigned: {tech?.full_name || 'Kasun Perera'} ({tech?.skill_category || 'HVAC'})
+                              {tech?.full_name || 'Kasun Perera'} ({wo?.status})
                             </Badge>
 
-                            {/* Live SLA Countdown Pill */}
                             {sla && (
                               <Badge
                                 variant="outline"
@@ -306,7 +347,7 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      {/* Intelligent Dispatch Modal */}
+      {/* Dispatch Modal */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
         <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-xl">
           <DialogHeader>
@@ -314,7 +355,7 @@ export default function AdminDashboardPage() {
               <Sparkles className="w-5 h-5 text-indigo-400" /> Dispatch Recommendation Engine
             </DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Assigning {selectedTicket?.ticket_number} in Room {selectedTicket?.Room?.room_number}. Technicians are ranked by trade skill match and current active workload.
+              Assigning {selectedTicket?.ticket_number}. Technicians are ranked by skill match and active workload.
             </DialogDescription>
           </DialogHeader>
 
@@ -323,8 +364,6 @@ export default function AdminDashboardPage() {
               <div className="py-8 text-center text-slate-400 flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" /> Scoring available technicians...
               </div>
-            ) : recommendations.length === 0 ? (
-              <div className="py-6 text-center text-slate-500">No active technicians found.</div>
             ) : (
               <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
                 {recommendations.map((rec, idx) => {
@@ -370,6 +409,82 @@ export default function AdminDashboardPage() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quality Verification & Audit Trail Modal */}
+      <Dialog open={!!inspectTicket} onOpenChange={() => setInspectTicket(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" /> Repair Inspection & Audit Trail
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              Inspect technician repair notes and photographic evidence before closing the ticket.
+            </DialogDescription>
+          </DialogHeader>
+
+          {inspectTicket && (
+            <div className="space-y-4 pt-2">
+              {/* Technician Notes */}
+              <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 space-y-1">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Technician Repair Notes:</span>
+                <p className="text-sm text-slate-200 italic">
+                  "{inspectTicket.work_order?.technician_notes || inspectTicket.WorkOrder?.technician_notes || 'No notes entered'}"
+                </p>
+              </div>
+
+              {/* Side-by-Side Photographic Comparison */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-rose-400 flex items-center gap-1">
+                    Initial Defect Photo
+                  </span>
+                  <div className="w-full h-44 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex items-center justify-center">
+                    {inspectTicket.image_url ? (
+                      <img src={inspectTicket.image_url} alt="Before" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs text-slate-600">No before photo</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                    Repaired Completion Photo
+                  </span>
+                  <div className="w-full h-44 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex items-center justify-center">
+                    {(inspectTicket.work_order?.after_image_url || inspectTicket.WorkOrder?.after_image_url) ? (
+                      <img src={inspectTicket.work_order?.after_image_url || inspectTicket.WorkOrder?.after_image_url} alt="After" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs text-slate-600">No completion photo</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end items-center gap-3 pt-4 border-t border-slate-800">
+                <Button
+                  variant="outline"
+                  disabled={verifying}
+                  onClick={() => handleReopen((inspectTicket.work_order?.ID || inspectTicket.WorkOrder?.ID))}
+                  className="border-rose-500/30 text-rose-400 hover:bg-rose-500/10 text-xs flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Reject & Reopen Job
+                </Button>
+
+                <Button
+                  disabled={verifying}
+                  onClick={() => handleVerify((inspectTicket.work_order?.ID || inspectTicket.WorkOrder?.ID))}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/20"
+                >
+                  {verifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  Approve & Close Incident
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

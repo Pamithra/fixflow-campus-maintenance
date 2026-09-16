@@ -175,3 +175,77 @@ func AssignWorkOrder(c *gin.Context) {
 		"work_order": workOrder,
 	})
 }
+
+// VerifyAndCloseWorkOrder approves the repair and closes the ticket
+func VerifyAndCloseWorkOrder(c *gin.Context) {
+	adminIDVal, _ := c.Get("user_id")
+	adminID := adminIDVal.(uint)
+	taskID := c.Param("id")
+
+	var wo models.WorkOrder
+	if err := database.DB.First(&wo, taskID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Work order not found"})
+		return
+	}
+
+	if wo.Status != models.WorkOrderCompleted {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only COMPLETED work orders can be verified"})
+		return
+	}
+
+	wo.Status = models.WorkOrderClosed
+	database.DB.Save(&wo)
+
+	// Update the parent request status to CLOSED
+	var req models.MaintenanceRequest
+	if err := database.DB.First(&req, wo.RequestID).Error; err == nil {
+		req.Status = models.StatusClosed
+		database.DB.Save(&req)
+	}
+
+	// Record Audit Log
+	audit := models.AuditLog{
+		WorkOrderID:   wo.ID,
+		ActorID:       adminID,
+		Action:        "VERIFIED_AND_CLOSED",
+		PreviousState: string(models.WorkOrderCompleted),
+		NewState:      string(models.WorkOrderClosed),
+	}
+	database.DB.Create(&audit)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Work order verified and incident closed successfully",
+		"work_order": wo,
+	})
+}
+
+// ReopenWorkOrder sends the ticket back to the technician if repair failed inspection
+func ReopenWorkOrder(c *gin.Context) {
+	adminIDVal, _ := c.Get("user_id")
+	adminID := adminIDVal.(uint)
+	taskID := c.Param("id")
+
+	var wo models.WorkOrder
+	if err := database.DB.First(&wo, taskID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Work order not found"})
+		return
+	}
+
+	wo.Status = models.WorkOrderInProgress
+	database.DB.Save(&wo)
+
+	// Record Audit Log
+	audit := models.AuditLog{
+		WorkOrderID:   wo.ID,
+		ActorID:       adminID,
+		Action:        "REOPENED_BY_ADMIN",
+		PreviousState: string(models.WorkOrderCompleted),
+		NewState:      string(models.WorkOrderInProgress),
+	}
+	database.DB.Create(&audit)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Work order reopened and sent back to technician",
+		"work_order": wo,
+	})
+}
