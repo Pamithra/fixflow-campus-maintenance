@@ -73,13 +73,13 @@ func main() {
 			protected.POST("/requests", handlers.CreateRequest)
 			protected.GET("/requests/my", handlers.GetMyRequests)
 
-			// Admin Section
+			// Admin Incident Command Center (Protected by RBAC)
 			adminOnly := protected.Group("/admin")
 			adminOnly.Use(middleware.RequireRole(models.RoleAdmin))
 			{
-				adminOnly.GET("/ping", func(c *gin.Context) {
-					c.JSON(http.StatusOK, gin.H{"message": "Welcome Admin!"})
-				})
+				adminOnly.GET("/incidents", handlers.GetAllIncidents)
+				adminOnly.GET("/incidents/:id/recommendations", handlers.GetRecommendations)
+				adminOnly.POST("/assign", handlers.AssignWorkOrder)
 			}
 		}
 	}
