@@ -90,6 +90,7 @@ func main() {
 				adminOnly.POST("/assign", handlers.AssignWorkOrder)
 				adminOnly.POST("/work-orders/:id/verify", handlers.VerifyAndCloseWorkOrder)
 				adminOnly.POST("/work-orders/:id/reopen", handlers.ReopenWorkOrder)
+				adminOnly.GET("/analytics", handlers.GetAnalytics)
 			}
 		}
 	}
