@@ -10,6 +10,7 @@ import (
 	"fixflow-backend/internal/middleware"
 	"fixflow-backend/internal/models"
 	"fixflow-backend/internal/services"
+	"fixflow-backend/internal/websocket" // <-- 1. WebSocket package
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,8 +26,9 @@ func main() {
 		log.Fatalf("Database connection failed: %v", err)
 	}
 
-	// Start Background SLA Escalation Goroutine
+	// 2. Start Background Workers
 	services.StartSLAWorker()
+	go websocket.GlobalHub.Run() // <-- 2. Start WebSocket Hub goroutine
 
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -57,6 +59,9 @@ func main() {
 			})
 		})
 
+		// 3. Register WebSocket Endpoint (Public)
+		api.GET("/ws", websocket.HandleWS)
+
 		api.POST("/auth/login", handlers.Login(cfg))
 
 		protected := api.Group("")
@@ -67,12 +72,12 @@ func main() {
 			protected.GET("/assets/:tag", handlers.GetAssetByTag)
 			protected.POST("/upload", handlers.UploadImage)
 
-			// Incident Requests & Feedback
+			// Incident Requests
 			protected.POST("/requests", handlers.CreateRequest)
 			protected.GET("/requests/my", handlers.GetMyRequests)
 			protected.POST("/requests/:id/feedback", handlers.SubmitFeedback)
 
-			// Technician Field Workbench
+			// Technician Workbench
 			techOnly := protected.Group("/technician")
 			techOnly.Use(middleware.RequireRole(models.RoleTechnician))
 			{
@@ -81,7 +86,7 @@ func main() {
 				techOnly.POST("/tasks/:id/complete", handlers.CompleteTask)
 			}
 
-			// Admin Command Center & Verification
+			// Admin Command Center
 			adminOnly := protected.Group("/admin")
 			adminOnly.Use(middleware.RequireRole(models.RoleAdmin))
 			{

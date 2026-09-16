@@ -8,6 +8,8 @@ import (
 
 	"fixflow-backend/internal/database"
 	"fixflow-backend/internal/models"
+	"fixflow-backend/internal/websocket"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -169,6 +171,13 @@ func AssignWorkOrder(c *gin.Context) {
 		NewState:      string(models.WorkOrderAssigned),
 	}
 	database.DB.Create(&audit)
+
+	// Broadcast real-time assignment update
+	websocket.Broadcast(
+		"WORK_ORDER_ASSIGNED",
+		fmt.Sprintf("⚡ %s assigned to technician", ticket.TicketNumber),
+		workOrder,
+	)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":    fmt.Sprintf("Work order created. SLA Deadline set to %d hours.", slaHours),

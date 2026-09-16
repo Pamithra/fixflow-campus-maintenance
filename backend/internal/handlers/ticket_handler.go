@@ -6,6 +6,7 @@ import (
 
 	"fixflow-backend/internal/database"
 	"fixflow-backend/internal/models"
+	"fixflow-backend/internal/websocket" 
 	"github.com/gin-gonic/gin"
 )
 
@@ -96,6 +97,13 @@ func CreateRequest(c *gin.Context) {
 
 	// Preload relationships for response
 	database.DB.Preload("Room.Floor.Building").Preload("Asset").First(&ticket, ticket.ID)
+
+	// 2. Broadcast real-time alert to all connected dispatchers (PLACED HERE)
+	websocket.Broadcast(
+		"NEW_INCIDENT",
+		fmt.Sprintf("🚨 New %s Incident reported: %s", ticket.CalculatedPriority, ticket.TicketNumber),
+		ticket,
+	)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Maintenance ticket submitted successfully",

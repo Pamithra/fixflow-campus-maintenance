@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { 
   AlertOctagon, 
   BarChart3, 
@@ -53,6 +54,15 @@ export default function AdminDashboardPage() {
 
   // Filter State
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
+  
+  const { connected: wsConnected } = useWebSocket((event) => {
+    console.log('Real-Time Event Received:', event);
+    // Show instant toast notification
+    setSuccessToast(event.message);
+    // Automatically re-fetch data so the list updates live without refreshing!
+    loadData();
+    setTimeout(() => setSuccessToast(''), 6000);
+  });
 
   useEffect(() => {
     loadData();
@@ -163,9 +173,17 @@ export default function AdminDashboardPage() {
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                Incident Command & Dispatch Center
-              </h1>
+                <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                    Incident Command & Dispatch Center
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        wsConnected 
+                            ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' 
+                            : 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                    }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+                        {wsConnected ? 'Live' : 'Offline'}
+                    </span>
+                </h1>
               <p className="text-xs text-slate-400">Logged in as {user?.full_name} (Dispatcher)</p>
             </div>
           </div>

@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	"fixflow-backend/internal/database"
 	"fixflow-backend/internal/models"
 	"github.com/gin-gonic/gin"
+	"fixflow-backend/internal/websocket"
 )
 
 // GetTechnicianTasks returns all work orders assigned to the logged-in technician
@@ -116,6 +118,13 @@ func CompleteTask(c *gin.Context) {
 		NewState:      string(models.WorkOrderCompleted),
 	}
 	database.DB.Create(&audit)
+
+	// Broadcast real-time completion alert to Admin
+	websocket.Broadcast(
+		"WORK_ORDER_COMPLETED",
+		fmt.Sprintf("✅ Work order #%d completed. Awaiting admin verification.", wo.ID),
+		wo,
+	)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":    "Work order marked as COMPLETED. Awaiting supervisor verification.",
