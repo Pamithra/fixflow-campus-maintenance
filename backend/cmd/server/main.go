@@ -14,26 +14,26 @@ import (
 )
 
 func main() {
-	// 1. Load dynamic configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// 2. Connect to database & auto-migrate & seed
 	_, err = database.Connect(cfg)
 	if err != nil {
 		log.Fatalf("Database connection failed: %v", err)
 	}
 
-	// 3. Set Gin environment mode
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	r := gin.Default()
 
-	// 4. Dynamic CORS middleware
+	// Static route to serve uploaded incident photos
+	r.Static("/uploads", "./uploads")
+
+	// Dynamic CORS
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", cfg.ClientOrigin)
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
@@ -45,10 +45,8 @@ func main() {
 		c.Next()
 	})
 
-	// 5. API Routes
 	api := r.Group("/api")
 	{
-		// Public Endpoints
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"status":      "healthy",
@@ -58,17 +56,24 @@ func main() {
 			})
 		})
 
-		// Auth Routes
+		// Public Auth
 		api.POST("/auth/login", handlers.Login(cfg))
 
-		// Protected Routes (Require valid JWT)
+		// Protected Routes
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg))
 		{
 			protected.GET("/auth/me", handlers.GetMe)
 			protected.GET("/facilities", handlers.GetCampusHierarchy)
 
-			// Role-Specific Test Guard
+			// Photo Upload
+			protected.POST("/upload", handlers.UploadImage)
+
+			// Incident Requests
+			protected.POST("/requests", handlers.CreateRequest)
+			protected.GET("/requests/my", handlers.GetMyRequests)
+
+			// Admin Section
 			adminOnly := protected.Group("/admin")
 			adminOnly.Use(middleware.RequireRole(models.RoleAdmin))
 			{
@@ -79,7 +84,6 @@ func main() {
 		}
 	}
 
-	// 6. Start the HTTP server
 	log.Printf(" FixFlow Server running on port %s", cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("Server failed to run: %v", err)
