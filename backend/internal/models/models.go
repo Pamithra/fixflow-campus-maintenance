@@ -80,18 +80,19 @@ type MaintenanceRequest struct {
 // Work Order Execution
 type WorkOrder struct {
 	gorm.Model
-	RequestID        uint            `gorm:"uniqueIndex;not null" json:"request_id"`
-	TechnicianID     *uint           `json:"technician_id"`
-	Status           WorkOrderStatus `gorm:"type:varchar(20);default:'ASSIGNED'" json:"status"`
-	SLADeadline      time.Time       `json:"sla_deadline"`
-	SLABreached      bool            `gorm:"default:false" json:"sla_breached"`
-	AfterImageURL    string          `json:"after_image_url"`
-	TechnicianNotes  string          `json:"technician_notes"`
-	Rating           int             `json:"rating"` // 1-5
-	FeedbackComments string          `json:"feedback_comments"`
+	RequestID        uint                `gorm:"uniqueIndex;not null" json:"request_id"`
+	TechnicianID     *uint               `json:"technician_id"`
+	Status           WorkOrderStatus     `gorm:"type:varchar(20);default:'ASSIGNED'" json:"status"`
+	SLADeadline      time.Time           `json:"sla_deadline"`
+	SLABreached      bool                `gorm:"default:false" json:"sla_breached"`
+	AfterImageURL    string              `json:"after_image_url"`
+	TechnicianNotes  string              `json:"technician_notes"`
+	Rating           int                 `json:"rating"` // 1-5
+	FeedbackComments string              `json:"feedback_comments"`
 
-	Technician       *User           `gorm:"foreignKey:TechnicianID" json:"technician,omitempty"`
-	AuditLogs        []AuditLog      `gorm:"foreignKey:WorkOrderID" json:"audit_logs,omitempty"`
+	Request          *MaintenanceRequest `gorm:"foreignKey:RequestID" json:"request,omitempty"`
+	Technician       *User               `gorm:"foreignKey:TechnicianID" json:"technician,omitempty"`
+	AuditLogs        []AuditLog          `gorm:"foreignKey:WorkOrderID" json:"audit_logs,omitempty"`
 }
 
 // Full Operational Audit Trail

@@ -81,6 +81,15 @@ func main() {
 				adminOnly.GET("/incidents/:id/recommendations", handlers.GetRecommendations)
 				adminOnly.POST("/assign", handlers.AssignWorkOrder)
 			}
+
+			// Technician Field Workbench Routes (Protected by RBAC)
+			techOnly := protected.Group("/technician")
+			techOnly.Use(middleware.RequireRole(models.RoleTechnician))
+			{
+				techOnly.GET("/tasks", handlers.GetTechnicianTasks)
+				techOnly.PATCH("/tasks/:id/start", handlers.StartTask)
+				techOnly.POST("/tasks/:id/complete", handlers.CompleteTask)
+			}
 		}
 	}
 
