@@ -11,13 +11,15 @@ import (
 )
 
 type CreateTicketRequest struct {
-	RoomID        uint   `json:"room_id" binding:"required"`
-	AssetID       *uint  `json:"asset_id"`
-	Description   string `json:"description" binding:"required"`
-	ImageURL      string `json:"image_url"`
-	SafetyRisk    bool   `json:"safety_risk"`
-	UnusableRisk  bool   `json:"unusable_risk"`
-	AffectedCount int    `json:"affected_count"`
+	RoomID              uint   `json:"room_id" binding:"required"`
+	AssetID             *uint  `json:"asset_id"`
+	EquipmentCategory   string `json:"equipment_category"`
+	CustomEquipmentName string `json:"custom_equipment_name"`
+	Description         string `json:"description" binding:"required"`
+	ImageURL            string `json:"image_url"`
+	SafetyRisk          bool   `json:"safety_risk"`
+	UnusableRisk        bool   `json:"unusable_risk"`
+	AffectedCount       int    `json:"affected_count"`
 }
 
 // CalculatePriority executes the multi-factor scoring algorithm
@@ -76,18 +78,20 @@ func CreateRequest(c *gin.Context) {
 	ticketNum := fmt.Sprintf("FF-%05d", 10001+ticketCount)
 
 	ticket := models.MaintenanceRequest{
-		TicketNumber:       ticketNum,
-		ReporterID:         userID,
-		RoomID:             req.RoomID,
-		AssetID:            req.AssetID,
-		Description:        req.Description,
-		ImageURL:           req.ImageURL,
-		SafetyRisk:         req.SafetyRisk,
-		UnusableRisk:       req.UnusableRisk,
-		AffectedCount:      req.AffectedCount,
-		PriorityScore:      score,
-		CalculatedPriority: priority,
-		Status:             models.StatusReported,
+		TicketNumber:        ticketNum,
+		ReporterID:          userID,
+		RoomID:              req.RoomID,
+		AssetID:             req.AssetID,
+		EquipmentCategory:   req.EquipmentCategory,
+		CustomEquipmentName: req.CustomEquipmentName,
+		Description:         req.Description,
+		ImageURL:            req.ImageURL,
+		SafetyRisk:          req.SafetyRisk,
+		UnusableRisk:        req.UnusableRisk,
+		AffectedCount:       req.AffectedCount,
+		PriorityScore:       score,
+		CalculatedPriority:  priority,
+		Status:              models.StatusReported,
 	}
 
 	if err := database.DB.Create(&ticket).Error; err != nil {
@@ -96,7 +100,7 @@ func CreateRequest(c *gin.Context) {
 	}
 
 	// Preload relationships for response
-	database.DB.Preload("Room.Floor.Building").Preload("Asset").First(&ticket, ticket.ID)
+	database.DB.Preload("Room").Preload("Room.Floor").Preload("Room.Floor.Building").Preload("Asset").First(&ticket, ticket.ID)
 
 	// 2. Broadcast real-time alert to all connected dispatchers (PLACED HERE)
 	websocket.Broadcast(
@@ -119,6 +123,8 @@ func GetMyRequests(c *gin.Context) {
 	var tickets []models.MaintenanceRequest
 	err := database.DB.
 		Where("reporter_id = ?", userID).
+		Preload("Room").
+		Preload("Room.Floor").
 		Preload("Room.Floor.Building").
 		Preload("Asset").
 		Preload("WorkOrder.Technician").

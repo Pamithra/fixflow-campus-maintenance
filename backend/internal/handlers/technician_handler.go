@@ -11,22 +11,30 @@ import (
 	"fixflow-backend/internal/websocket"
 )
 
-// GetTechnicianTasks returns all work orders assigned to the logged-in technician
+// GetTechnicianTasks returns all work orders assigned to the logged-in technician (or all for Admin)
 func GetTechnicianTasks(c *gin.Context) {
 	userIDVal, _ := c.Get("user_id")
+	userRoleVal, _ := c.Get("user_role")
 	techID := userIDVal.(uint)
 
-	var workOrders []models.WorkOrder
-	err := database.DB.
-		Where("technician_id = ?", techID).
+	query := database.DB.
+		Preload("Request").
+		Preload("Request.Room").
+		Preload("Request.Room.Floor").
 		Preload("Request.Room.Floor.Building").
 		Preload("Request.Asset").
 		Preload("Request.Reporter").
+		Preload("Technician").
 		Preload("AuditLogs.Actor").
-		Order("created_at desc").
-		Find(&workOrders).Error
+		Order("created_at desc")
 
-	if err != nil {
+	// Filter by technician ID only if the user is a technician
+	if userRoleVal == models.RoleTechnician {
+		query = query.Where("technician_id = ?", techID)
+	}
+
+	var workOrders []models.WorkOrder
+	if err := query.Find(&workOrders).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch technician tasks"})
 		return
 	}

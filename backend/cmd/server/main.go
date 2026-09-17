@@ -38,9 +38,15 @@ func main() {
 	r.Static("/uploads", "./uploads")
 
 	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", cfg.ClientOrigin)
+		origin := c.Request.Header.Get("Origin")
+		if origin != "" {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+		} else {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		}
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
@@ -62,14 +68,21 @@ func main() {
 		// 3. Register WebSocket Endpoint (Public)
 		api.GET("/ws", websocket.HandleWS)
 
+		// Public Auth Endpoints
 		api.POST("/auth/login", handlers.Login(cfg))
+		api.POST("/auth/register", handlers.Register(cfg))
+		api.POST("/auth/reset-password", handlers.ResetPassword)
+
+		// Public Asset and Facilities resolution (supports instant QR pre-scans)
+		api.GET("/facilities", handlers.GetCampusHierarchy)
+		api.GET("/assets/:tag", handlers.GetAssetByTag)
 
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg))
 		{
 			protected.GET("/auth/me", handlers.GetMe)
-			protected.GET("/facilities", handlers.GetCampusHierarchy)
-			protected.GET("/assets/:tag", handlers.GetAssetByTag)
+			protected.GET("/notifications/my", handlers.GetMyNotifications)
+			protected.PATCH("/notifications/read", handlers.MarkNotificationsRead)
 			protected.POST("/upload", handlers.UploadImage)
 
 			// Incident Requests
@@ -77,9 +90,9 @@ func main() {
 			protected.GET("/requests/my", handlers.GetMyRequests)
 			protected.POST("/requests/:id/feedback", handlers.SubmitFeedback)
 
-			// Technician Workbench
+			// Technician Workbench (Technicians & Admins)
 			techOnly := protected.Group("/technician")
-			techOnly.Use(middleware.RequireRole(models.RoleTechnician))
+			techOnly.Use(middleware.RequireRole(models.RoleTechnician, models.RoleAdmin))
 			{
 				techOnly.GET("/tasks", handlers.GetTechnicianTasks)
 				techOnly.PATCH("/tasks/:id/start", handlers.StartTask)

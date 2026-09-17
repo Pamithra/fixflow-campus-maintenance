@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"fixflow-backend/internal/database"
 	"fixflow-backend/internal/models"
+	"fixflow-backend/internal/services"
 	"fixflow-backend/internal/websocket"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +20,7 @@ type TechnicianRecommendation struct {
 	Technician     models.User `json:"technician"`
 	SkillMatch     bool        `json:"skill_match"`
 	ActiveWorkload int64       `json:"active_workload"`
+	IsAvailable    bool        `json:"is_available"` // True if 0 active jobs (free to take work)
 	MatchScore     int         `json:"match_score"`
 }
 
@@ -26,6 +29,8 @@ func GetAllIncidents(c *gin.Context) {
 	var tickets []models.MaintenanceRequest
 
 	err := database.DB.
+		Preload("Room").
+		Preload("Room.Floor").
 		Preload("Room.Floor.Building").
 		Preload("Asset").
 		Preload("Reporter").
@@ -51,10 +56,23 @@ func GetRecommendations(c *gin.Context) {
 		return
 	}
 
-	// Target category: from Asset if attached, or generic
+	// Target category: from Asset if attached, or mapped from EquipmentCategory
 	targetCategory := "General"
 	if ticket.Asset != nil && ticket.Asset.Category != "" {
 		targetCategory = ticket.Asset.Category
+	} else if ticket.EquipmentCategory != "" {
+		eq := strings.ToUpper(ticket.EquipmentCategory)
+		if strings.Contains(eq, "HVAC") || strings.Contains(eq, "AIR CONDITIONER") || strings.Contains(eq, "AC") {
+			targetCategory = "HVAC"
+		} else if strings.Contains(eq, "IT") || strings.Contains(eq, "COMPUTER") || strings.Contains(eq, "PROJECTOR") || strings.Contains(eq, "NETWORK") || strings.Contains(eq, "WI-FI") {
+			targetCategory = "IT"
+		} else if strings.Contains(eq, "ELECTRICAL") || strings.Contains(eq, "LIGHTING") || strings.Contains(eq, "POWER") {
+			targetCategory = "Electrical"
+		} else if strings.Contains(eq, "PLUMBING") || strings.Contains(eq, "WASHROOM") || strings.Contains(eq, "WATER") {
+			targetCategory = "Plumbing"
+		} else {
+			targetCategory = "General"
+		}
 	}
 
 	// Fetch all active technicians
@@ -73,33 +91,46 @@ func GetRecommendations(c *gin.Context) {
 			Where("technician_id = ? AND status IN (?, ?)", tech.ID, models.WorkOrderAssigned, models.WorkOrderInProgress).
 			Count(&activeJobs)
 
-		// 1. Skill Match Weight (50 pts)
-		skillMatch := tech.SkillCategory == targetCategory
+		isAvailable := activeJobs == 0
 		score := 0
-		if skillMatch {
+
+		// 1. Availability Bonus (50 pts if 100% free / 0 active tasks)
+		if isAvailable {
 			score += 50
+		} else {
+			penalty := int(activeJobs * 15)
+			if penalty > 40 {
+				penalty = 40
+			}
+			score += (40 - penalty)
 		}
 
-		// 2. Base Availability (30 pts)
-		score += 30
-
-		// 3. Workload Penalty (-10 pts per active job)
-		score -= int(activeJobs * 10)
-		if score < 0 {
-			score = 0
+		// 2. Skill Match Weight (50 pts for exact specialty match)
+		skillMatch := tech.SkillCategory == targetCategory
+		if skillMatch {
+			score += 50
+		} else if tech.SkillCategory == "General" {
+			score += 20 // General maintenance can take general tasks
 		}
 
 		recommendations = append(recommendations, TechnicianRecommendation{
 			Technician:     tech,
 			SkillMatch:     skillMatch,
 			ActiveWorkload: activeJobs,
+			IsAvailable:    isAvailable,
 			MatchScore:     score,
 		})
 	}
 
-	// Sort highest match score first
+	// Sort available technicians with matching skills first
 	sort.Slice(recommendations, func(i, j int) bool {
-		return recommendations[i].MatchScore > recommendations[j].MatchScore
+		if recommendations[i].IsAvailable != recommendations[j].IsAvailable {
+			return recommendations[i].IsAvailable // available (free) first!
+		}
+		if recommendations[i].MatchScore != recommendations[j].MatchScore {
+			return recommendations[i].MatchScore > recommendations[j].MatchScore
+		}
+		return recommendations[i].ActiveWorkload < recommendations[j].ActiveWorkload
 	})
 
 	c.JSON(http.StatusOK, gin.H{
@@ -125,7 +156,7 @@ func AssignWorkOrder(c *gin.Context) {
 	}
 
 	var ticket models.MaintenanceRequest
-	if err := database.DB.First(&ticket, payload.RequestID).Error; err != nil {
+	if err := database.DB.Preload("Reporter").Preload("Room").Preload("Room.Floor").Preload("Room.Floor.Building").Preload("Asset").First(&ticket, payload.RequestID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Ticket not found"})
 		return
 	}
@@ -179,8 +210,41 @@ func AssignWorkOrder(c *gin.Context) {
 		workOrder,
 	)
 
+	// Look up assigned technician details
+	var tech models.User
+	database.DB.First(&tech, payload.TechnicianID)
+
+	// Identify equipment name clearly
+	equipName := ticket.CustomEquipmentName
+	if equipName == "" && ticket.Asset != nil {
+		equipName = ticket.Asset.Name
+	}
+	if equipName == "" && ticket.EquipmentCategory != "" {
+		equipName = ticket.EquipmentCategory
+	}
+	if equipName == "" {
+		equipName = "Equipment"
+	}
+
+	floorDisplay := fmt.Sprintf("Floor %d", ticket.Room.Floor.FloorNumber)
+	if ticket.Room.Floor.FloorNumber == 0 {
+		floorDisplay = "Ground Floor (Floor 0)"
+	}
+
+	// Send message to the user's phone number
+	smsMsg := fmt.Sprintf(
+		"FixFlow Alert: Your reported issue (%s) for %s in %s, %s (%s) has been assigned to technician %s.",
+		ticket.TicketNumber,
+		equipName,
+		ticket.Room.RoomNumber,
+		ticket.Room.Floor.Building.Name,
+		floorDisplay,
+		tech.FullName,
+	)
+	services.SendSMS(ticket.ReporterID, ticket.Reporter.PhoneNumber, ticket.Reporter.FullName, smsMsg, "ASSIGNMENT", ticket.TicketNumber)
+
 	c.JSON(http.StatusOK, gin.H{
-		"message":    fmt.Sprintf("Work order created. SLA Deadline set to %d hours.", slaHours),
+		"message":    fmt.Sprintf("Work order created and SMS sent to reporter. SLA Deadline set to %d hours.", slaHours),
 		"work_order": workOrder,
 	})
 }
@@ -207,9 +271,33 @@ func VerifyAndCloseWorkOrder(c *gin.Context) {
 
 	// Update the parent request status to CLOSED
 	var req models.MaintenanceRequest
-	if err := database.DB.First(&req, wo.RequestID).Error; err == nil {
+	if err := database.DB.Preload("Reporter").Preload("Room").Preload("Room.Floor").Preload("Room.Floor.Building").Preload("Asset").First(&req, wo.RequestID).Error; err == nil {
 		req.Status = models.StatusClosed
 		database.DB.Save(&req)
+
+		equipName := req.CustomEquipmentName
+		if equipName == "" && req.Asset != nil {
+			equipName = req.Asset.Name
+		}
+		if equipName == "" && req.EquipmentCategory != "" {
+			equipName = req.EquipmentCategory
+		}
+		if equipName == "" {
+			equipName = "Equipment"
+		}
+
+		floorDisplay := fmt.Sprintf("Floor %d", req.Room.Floor.FloorNumber)
+		if req.Room.Floor.FloorNumber == 0 {
+			floorDisplay = "Ground Floor (Floor 0)"
+		}
+
+		completionMsg := fmt.Sprintf(
+			"FixFlow Alert: Maintenance for %s in %s (%s) is completed! Please open FixFlow to rate the service (1-5 stars) and confirm if the equipment is working properly.",
+			equipName,
+			req.Room.RoomNumber,
+			floorDisplay,
+		)
+		services.SendSMS(req.ReporterID, req.Reporter.PhoneNumber, req.Reporter.FullName, completionMsg, "COMPLETION", req.TicketNumber)
 	}
 
 	// Record Audit Log
@@ -223,7 +311,7 @@ func VerifyAndCloseWorkOrder(c *gin.Context) {
 	database.DB.Create(&audit)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "Work order verified and incident closed successfully",
+		"message":    "Work order verified, incident closed, and completion SMS notification sent to user.",
 		"work_order": wo,
 	})
 }

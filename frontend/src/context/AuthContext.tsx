@@ -8,7 +8,8 @@ export interface User {
   id: number;
   email: string;
   full_name: string;
-  role: 'ADMIN' | 'TECHNICIAN' | 'STUDENT';
+  phone_number?: string;
+  role: 'ADMIN' | 'STAFF' | 'TECHNICIAN' | 'STUDENT';
   skill_category?: string;
 }
 
@@ -16,7 +17,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (token: string, user: User) => void;
+  login: (token: string, user: User, redirectUrl?: string) => void;
   logout: () => void;
 }
 
@@ -39,16 +40,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = (newToken: string, newUser: User) => {
+  const login = (newToken: string, newUser: User, redirectUrl?: string) => {
     setToken(newToken);
     setUser(newUser);
     localStorage.setItem('fixflow_token', newToken);
     localStorage.setItem('fixflow_user', JSON.stringify(newUser));
 
-    // Dynamic routing based on role
+    // Admin always goes to Command Dashboard
     if (newUser.role === 'ADMIN') {
       router.push('/dashboard');
-    } else if (newUser.role === 'TECHNICIAN') {
+      return;
+    }
+
+    if (redirectUrl && !redirectUrl.startsWith('/login')) {
+      router.push(redirectUrl);
+      return;
+    }
+
+    // Dynamic routing based on role
+    if (newUser.role === 'TECHNICIAN') {
       router.push('/tasks');
     } else {
       router.push('/report');

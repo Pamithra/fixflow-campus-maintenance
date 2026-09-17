@@ -4,20 +4,21 @@ import (
 	"log"
 
 	"fixflow-backend/internal/models"
+
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 func Seed(db *gorm.DB) {
-	// 1. Check if database already has users
-	var userCount int64
-	db.Model(&models.User{}).Count(&userCount)
-	if userCount > 0 {
-		log.Println("🌱 Database already seeded, skipping.")
+	// Check if IT Faculty data is already seeded
+	var itBuildingCount int64
+	db.Model(&models.Building{}).Where("code IN (?, ?)", "IT-OLD", "IT-NEW").Count(&itBuildingCount)
+	if itBuildingCount >= 2 {
+		log.Println("🌱 IT Faculty infrastructure already seeded, skipping.")
 		return
 	}
 
-	log.Println("🌱 Seeding initial campus data...")
+	log.Println("🌱 Seeding IT Faculty campus infrastructure and test accounts...")
 
 	// Helper for password hashing
 	hashPassword := func(pwd string) string {
@@ -25,13 +26,23 @@ func Seed(db *gorm.DB) {
 		return string(h)
 	}
 
-	// 2. Create Initial Users (Admin, Technicians, Student)
+	// 1. Seed Initial Users (Admin, Staff, Technicians, Student)
 	users := []models.User{
 		{
 			FullName:      "Campus Maintenance Admin",
 			Email:         "admin@fixflow.edu",
 			PasswordHash:  hashPassword("Admin@123"),
+			PhoneNumber:   "+94771112233",
 			Role:          models.RoleAdmin,
+			SkillCategory: "",
+			IsActive:      true,
+		},
+		{
+			FullName:      "Dr. Anura Bandara (Faculty Staff)",
+			Email:         "staff@fixflow.edu",
+			PasswordHash:  hashPassword("Staff@123"),
+			PhoneNumber:   "+94712223344",
+			Role:          models.RoleStaff,
 			SkillCategory: "",
 			IsActive:      true,
 		},
@@ -39,6 +50,7 @@ func Seed(db *gorm.DB) {
 			FullName:      "Kasun Perera",
 			Email:         "kasun.hvac@fixflow.edu",
 			PasswordHash:  hashPassword("Tech@123"),
+			PhoneNumber:   "+94763334455",
 			Role:          models.RoleTechnician,
 			SkillCategory: "HVAC",
 			IsActive:      true,
@@ -47,6 +59,7 @@ func Seed(db *gorm.DB) {
 			FullName:      "Nimal Silva",
 			Email:         "nimal.elec@fixflow.edu",
 			PasswordHash:  hashPassword("Tech@123"),
+			PhoneNumber:   "+94774445566",
 			Role:          models.RoleTechnician,
 			SkillCategory: "Electrical",
 			IsActive:      true,
@@ -55,14 +68,25 @@ func Seed(db *gorm.DB) {
 			FullName:      "Amal Fernando",
 			Email:         "amal.plumb@fixflow.edu",
 			PasswordHash:  hashPassword("Tech@123"),
+			PhoneNumber:   "+94755556677",
 			Role:          models.RoleTechnician,
 			SkillCategory: "Plumbing",
 			IsActive:      true,
 		},
 		{
-			FullName:      "Engineering Student",
+			FullName:      "Saman Kumara",
+			Email:         "saman.it@fixflow.edu",
+			PasswordHash:  hashPassword("Tech@123"),
+			PhoneNumber:   "+94706667788",
+			Role:          models.RoleTechnician,
+			SkillCategory: "IT",
+			IsActive:      true,
+		},
+		{
+			FullName:      "Praveen Jayasinghe (Student)",
 			Email:         "student@fixflow.edu",
 			PasswordHash:  hashPassword("Student@123"),
+			PhoneNumber:   "+94784445566",
 			Role:          models.RoleStudent,
 			SkillCategory: "",
 			IsActive:      true,
@@ -70,57 +94,149 @@ func Seed(db *gorm.DB) {
 	}
 
 	for _, u := range users {
-		db.Create(&u)
+		var existing models.User
+		if err := db.Where("email = ?", u.Email).First(&existing).Error; err != nil {
+			db.Create(&u)
+		} else {
+			existing.PhoneNumber = u.PhoneNumber
+			existing.Role = u.Role
+			db.Save(&existing)
+		}
 	}
 
-	// 3. Create Campus Hierarchy: Buildings -> Floors -> Rooms
-	engBuilding := models.Building{Name: "Faculty of Engineering", Code: "ENG"}
-	mgtBuilding := models.Building{Name: "Faculty of Management", Code: "MGT"}
-	db.Create(&engBuilding)
-	db.Create(&mgtBuilding)
+	// 2. Create IT Faculty Buildings (Old Building & New Building)
+	oldBuilding := models.Building{Name: "Old Building", Code: "IT-OLD"}
+	newBuilding := models.Building{Name: "New Building", Code: "IT-NEW"}
+	db.Where(models.Building{Code: "IT-OLD"}).FirstOrCreate(&oldBuilding)
+	db.Where(models.Building{Code: "IT-NEW"}).FirstOrCreate(&newBuilding)
 
-	// Engineering Floors
-	engFloor1 := models.Floor{BuildingID: engBuilding.ID, FloorNumber: 1}
-	engFloor2 := models.Floor{BuildingID: engBuilding.ID, FloorNumber: 2}
-	db.Create(&engFloor1)
-	db.Create(&engFloor2)
+	// 3. Create Floors 0 to 4 (5 Floors) for both buildings
+	oldFloors := make(map[int]models.Floor)
+	newFloors := make(map[int]models.Floor)
 
-	// Rooms
-	roomE101 := models.Room{FloorID: engFloor1.ID, RoomNumber: "E101", RoomType: "Lecture Theater"}
-	roomE102 := models.Room{FloorID: engFloor1.ID, RoomNumber: "E102", RoomType: "Computer Lab"}
-	roomE204 := models.Room{FloorID: engFloor2.ID, RoomNumber: "E204", RoomType: "Thermodynamics Lab"}
-	db.Create(&roomE101)
-	db.Create(&roomE102)
-	db.Create(&roomE204)
+	for floorNum := 0; floorNum <= 4; floorNum++ {
+		fOld := models.Floor{BuildingID: oldBuilding.ID, FloorNumber: floorNum}
+		db.Where("building_id = ? AND floor_number = ?", oldBuilding.ID, floorNum).FirstOrCreate(&fOld)
+		oldFloors[floorNum] = fOld
 
-	// 4. Create Trackable Assets (with Asset Tags for QR codes)
+		fNew := models.Floor{BuildingID: newBuilding.ID, FloorNumber: floorNum}
+		db.Where("building_id = ? AND floor_number = ?", newBuilding.ID, floorNum).FirstOrCreate(&fNew)
+		newFloors[floorNum] = fNew
+	}
+
+	// Helper to add room
+	createRoom := func(floorID uint, roomNumber string, roomType string) models.Room {
+		r := models.Room{FloorID: floorID, RoomNumber: roomNumber, RoomType: roomType}
+		db.Where("floor_id = ? AND room_number = ?", floorID, roomNumber).FirstOrCreate(&r)
+		return r
+	}
+
+	// === GROUND FLOOR (FLOOR 0) ===
+	// Old Building:
+	createRoom(oldFloors[0].ID, "Workshop", "Workshop")
+	createRoom(oldFloors[0].ID, "Staff Room (Ground Floor)", "Staff Room")
+	// New Building:
+	roomERP := createRoom(newFloors[0].ID, "ERP Laboratory", "Laboratory")
+	createRoom(newFloors[0].ID, "Data Sciences Laboratory", "Laboratory")
+	room0LH1 := createRoom(newFloors[0].ID, "0LH01A", "Lecture Hall")
+	createRoom(newFloors[0].ID, "0LH02A", "Lecture Hall")
+	createRoom(newFloors[0].ID, "Staff Room (Phase 2 Ground)", "Staff Room")
+
+	// === FIRST FLOOR (FLOOR 1) ===
+	// Old Building:
+	roomLab1 := createRoom(oldFloors[1].ID, "Laboratory-01", "Laboratory")
+	createRoom(oldFloors[1].ID, "1LH01A", "Lecture Hall")
+	createRoom(oldFloors[1].ID, "1LH02A", "Lecture Hall")
+	createRoom(oldFloors[1].ID, "Staff Room (1st Floor)", "Staff Room")
+	// New Building:
+	createRoom(newFloors[1].ID, "Laboratory - 07", "Laboratory")
+	createRoom(newFloors[1].ID, "1LH03A", "Lecture Hall")
+	createRoom(newFloors[1].ID, "Staff Room (Phase 2 1st Floor)", "Staff Room")
+
+	// === SECOND FLOOR (FLOOR 2) ===
+	// Old Building:
+	createRoom(oldFloors[2].ID, "Laboratory- 02", "Laboratory")
+	createRoom(oldFloors[2].ID, "Multimedia Research Lab", "Laboratory")
+	createRoom(oldFloors[2].ID, "2LH01A", "Lecture Hall")
+	createRoom(oldFloors[2].ID, "Audio Visual Unit", "Specialized Unit")
+	createRoom(oldFloors[2].ID, "Staff Room (2nd Floor)", "Staff Room")
+	// New Building:
+	createRoom(newFloors[2].ID, "Laboratory- 05", "Laboratory")
+	createRoom(newFloors[2].ID, "HPC Laboratory", "Laboratory")
+	createRoom(newFloors[2].ID, "2LH02A", "Lecture Hall")
+	createRoom(newFloors[2].ID, "2LH03A", "Lecture Hall")
+	createRoom(newFloors[2].ID, "Staff Room (Phase 2 2nd Floor)", "Staff Room")
+
+	// === THIRD FLOOR (FLOOR 3) ===
+	// Old Building:
+	createRoom(oldFloors[3].ID, "Laboratory- 03", "Laboratory")
+	createRoom(oldFloors[3].ID, "Laboratory - 04", "Laboratory")
+	createRoom(oldFloors[3].ID, "Multimedia Development Lab", "Laboratory")
+	createRoom(oldFloors[3].ID, "3LH01A", "Lecture Hall")
+	createRoom(oldFloors[3].ID, "3LH02A", "Lecture Hall")
+	createRoom(oldFloors[3].ID, "Staff Room (3rd Floor)", "Staff Room")
+	// New Building:
+	createRoom(newFloors[3].ID, "Laboratory - 08", "Laboratory")
+	createRoom(newFloors[3].ID, "Staff Room (Phase 2 3rd Floor)", "Staff Room")
+
+	// === FOURTH FLOOR (FLOOR 4) ===
+	// Old Building:
+	roomNetLab := createRoom(oldFloors[4].ID, "Network Laboratory", "Laboratory")
+	createRoom(oldFloors[4].ID, "Laboratory 6", "Laboratory")
+	createRoom(oldFloors[4].ID, "Hardware Lab", "Laboratory")
+	createRoom(oldFloors[4].ID, "Embedded Systems Lab", "Laboratory")
+	createRoom(oldFloors[4].ID, "4LH01A (Auditorium)", "Auditorium")
+	createRoom(oldFloors[4].ID, "Staff Room (4th Floor)", "Staff Room")
+	// New Building:
+	createRoom(newFloors[4].ID, "Electronic & Embedded Systems Lab", "Laboratory")
+	roomAuditorium2 := createRoom(newFloors[4].ID, "4LH02A (Auditorium)", "Auditorium")
+	createRoom(newFloors[4].ID, "Staff Room (Phase 2 4th Floor)", "Staff Room")
+
+	// 4. Create Trackable Assets with QR Asset Tags
 	assets := []models.Asset{
 		{
-			AssetTag: "AC-ENG-E204-01",
+			AssetTag: "AC-IT-NEW-ERPLAB-01",
 			Name:     "Daikin Inverter AC 24000 BTU",
 			Category: "HVAC",
-			RoomID:   roomE204.ID,
+			RoomID:   roomERP.ID,
 			Status:   "OPERATIONAL",
 		},
 		{
-			AssetTag: "PROJ-ENG-E101-01",
+			AssetTag: "PROJ-IT-NEW-0LH01A-01",
 			Name:     "Epson 4K Ceiling Projector",
 			Category: "IT",
-			RoomID:   roomE101.ID,
+			RoomID:   room0LH1.ID,
 			Status:   "OPERATIONAL",
 		},
 		{
-			AssetTag: "DIST-ENG-E102-01",
-			Name:     "3-Phase Power Distribution Panel",
-			Category: "Electrical",
-			RoomID:   roomE102.ID,
+			AssetTag: "AC-IT-OLD-LAB1-01",
+			Name:     "Panasonic 18000 BTU Air Conditioner",
+			Category: "HVAC",
+			RoomID:   roomLab1.ID,
+			Status:   "OPERATIONAL",
+		},
+		{
+			AssetTag: "SW-IT-OLD-NETLAB-01",
+			Name:     "Cisco Catalyst 48-Port Switch",
+			Category: "Network",
+			RoomID:   roomNetLab.ID,
+			Status:   "OPERATIONAL",
+		},
+		{
+			AssetTag: "AC-IT-NEW-4LH02A-01",
+			Name:     "Auditorium Central AC Unit 01",
+			Category: "HVAC",
+			RoomID:   roomAuditorium2.ID,
 			Status:   "OPERATIONAL",
 		},
 	}
 
 	for _, a := range assets {
-		db.Create(&a)
+		var existing models.Asset
+		if err := db.Where("asset_tag = ?", a.AssetTag).First(&existing).Error; err != nil {
+			db.Create(&a)
+		}
 	}
 
-	log.Println(" Campus infrastructure and test accounts seeded successfully!")
+	log.Println("✅ IT Faculty infrastructure and accounts seeded successfully!")
 }

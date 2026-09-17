@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { 
@@ -15,16 +16,37 @@ import {
   Send, 
   Sparkles, 
   Wrench, 
-  Check 
+  Check,
+  Filter,
+  ListFilter,
+  Shield,
+  Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import Navbar from '@/components/Navbar';
+
+const getBuildingDisplayName = (buildingName?: string, roomNumber?: string) => {
+  if (buildingName && buildingName !== 'Main Building' && !buildingName.includes('Faculty of')) {
+    return buildingName.replace('Phase 1 (Old Building)', 'Old Building').replace('Phase 2 (New Building)', 'New Building');
+  }
+  const rm = roomNumber || '';
+  if (rm.startsWith('0LH') || rm.startsWith('1LH03') || rm.startsWith('2LH02') || rm.startsWith('2LH03') || rm.startsWith('4LH02') || rm.includes('ERP') || rm.includes('Data Sciences') || rm.includes('HPC') || rm.includes('Phase 2')) {
+    return 'New Building';
+  }
+  return 'Old Building';
+};
 
 export default function TechnicianTasksPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filter States
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OVERDUE' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CLOSED'>('ALL');
+  const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
 
   // Completion Form State per task
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
@@ -34,9 +56,18 @@ export default function TechnicianTasksPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [successToast, setSuccessToast] = useState('');
 
+  // Role Guard & Data Loader
   useEffect(() => {
-    loadTasks();
-  }, []);
+    if (!authLoading) {
+      if (!user) {
+        router.push('/login?redirect=/tasks');
+      } else if (user.role !== 'TECHNICIAN' && user.role !== 'ADMIN') {
+        router.push('/report');
+      } else {
+        loadTasks();
+      }
+    }
+  }, [user, authLoading, router]);
 
   const loadTasks = () => {
     setLoading(true);
@@ -50,7 +81,7 @@ export default function TechnicianTasksPage() {
   const getRemainingSLA = (deadlineStr?: string) => {
     if (!deadlineStr) return null;
     const diff = new Date(deadlineStr).getTime() - Date.now();
-    if (diff <= 0) return { text: 'SLA BREACHED', breached: true };
+    if (diff <= 0) return { text: 'DEADLINE EXPIRED', breached: true };
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     return { text: `${hours}h ${mins}m remaining`, breached: false };
@@ -61,7 +92,7 @@ export default function TechnicianTasksPage() {
     setActionLoading(true);
     try {
       await api.patch(`/technician/tasks/${taskId}/start`);
-      setSuccessToast('Job status updated to IN_PROGRESS. Clock is running!');
+      setSuccessToast('Job status updated to IN_PROGRESS. Work timer is running!');
       loadTasks();
       setTimeout(() => setSuccessToast(''), 4000);
     } catch (err: any) {
@@ -95,7 +126,7 @@ export default function TechnicianTasksPage() {
         after_image_url: uploadedUrl,
       });
 
-      setSuccessToast(res.data.message);
+      setSuccessToast(res.data.message || 'Repair successfully submitted for admin inspection!');
       setActiveTaskId(null);
       setNotes('');
       setAfterImageFile(null);
@@ -109,32 +140,232 @@ export default function TechnicianTasksPage() {
     }
   };
 
+  // Helper to check if a task has passed deadline
+  const isTaskOverdue = (wo: any) => {
+    if (wo.status === 'COMPLETED' || wo.status === 'CLOSED') return false;
+    const deadlineStr = wo.sla_deadline || wo.SLADeadline;
+    if (!deadlineStr) return false;
+    return new Date(deadlineStr).getTime() <= Date.now();
+  };
+
+  // Filter Counts
+  const allCount = tasks.length;
+  const overdueCount = tasks.filter((t) => isTaskOverdue(t)).length;
+  const assignedCount = tasks.filter((t) => t.status === 'ASSIGNED' && !isTaskOverdue(t)).length;
+  const inProgressCount = tasks.filter((t) => t.status === 'IN_PROGRESS' && !isTaskOverdue(t)).length;
+  const completedCount = tasks.filter((t) => t.status === 'COMPLETED').length;
+  const closedCount = tasks.filter((t) => t.status === 'CLOSED').length;
+
+  // Filtered Task List
+  const filteredTasks = tasks.filter((t) => {
+    const req = t.Request || t.request;
+    const priority = req?.calculated_priority;
+    const overdue = isTaskOverdue(t);
+
+    // 1. Status Filter
+    if (statusFilter === 'OVERDUE') {
+      if (!overdue) return false;
+    } else if (statusFilter === 'ASSIGNED') {
+      if (t.status !== 'ASSIGNED' || overdue) return false;
+    } else if (statusFilter === 'IN_PROGRESS') {
+      if (t.status !== 'IN_PROGRESS' || overdue) return false;
+    } else if (statusFilter === 'COMPLETED') {
+      if (t.status !== 'COMPLETED') return false;
+    } else if (statusFilter === 'CLOSED') {
+      if (t.status !== 'CLOSED') return false;
+    }
+
+    // 2. Priority Filter
+    if (priorityFilter !== 'ALL' && priority !== priorityFilter) {
+      return false;
+    }
+
+    return true;
+  });
+
+  if (authLoading || !user || (user.role !== 'TECHNICIAN' && user.role !== 'ADMIN')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400 text-xs">
+        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading Maintenance Tasks Workbench...
+      </div>
+    );
+  }
+
+  const isAdmin = user.role === 'ADMIN';
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 space-y-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 space-y-6">
+      <Navbar />
+
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 space-y-6">
         
-        {/* Header */}
+        {/* Sub-Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800 backdrop-blur">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
-              <Wrench className="w-5 h-5" />
+            <div className={`p-2.5 rounded-lg border ${isAdmin ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+              {isAdmin ? <Shield className="w-5 h-5" /> : <Wrench className="w-5 h-5" />}
             </div>
             <div>
               <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                Technician Field Workbench
+                {isAdmin ? 'Campus Maintenance Tasks & Field Work Orders' : 'My Assigned Maintenance Tasks'}
               </h1>
               <p className="text-xs text-slate-400">
-                Logged in as <strong>{user?.full_name}</strong> • <span className="text-amber-400 font-semibold">{user?.skill_category || 'HVAC'} Specialist</span>
+                Logged in as <strong>{user?.full_name}</strong> •{' '}
+                {isAdmin ? (
+                  <span className="text-purple-400 font-semibold">Campus Maintenance Administrator</span>
+                ) : (
+                  <span className="text-amber-400 font-semibold">{user?.skill_category || 'General'} Technician</span>
+                )}
+                {' '}{isAdmin ? '(Supervising all technician repair jobs across IT Faculty)' : '(Your assigned repair work orders)'}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={loadTasks} className="border-slate-800 text-slate-300">
-              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
-            </Button>
-            <Button variant="outline" size="sm" onClick={logout} className="border-slate-800 text-slate-300">
-              Sign Out
-            </Button>
+          <Button variant="outline" size="sm" onClick={loadTasks} className="border-slate-800 text-slate-300 hover:text-white text-xs">
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh Tasks
+          </Button>
+        </div>
+
+        {/* Informative Guidance Box */}
+        <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 flex items-start sm:items-center gap-3">
+          <div className={`p-2 rounded-lg shrink-0 ${isAdmin ? 'bg-purple-500/10 text-purple-400' : 'bg-amber-500/10 text-amber-400'}`}>
+            <Info className="w-4 h-4" />
+          </div>
+          <div className="space-y-0.5">
+            <p className="font-semibold text-slate-200">
+              {isAdmin ? 'Administrator Field Supervisor Mode' : 'Technician Task Completion Guide'}
+            </p>
+            <p className="text-slate-400 leading-relaxed text-[11px]">
+              {isAdmin 
+                ? 'You are supervising all campus work orders across the IT Faculty. Use the filter bars below to track work order progress, monitor repair deadlines (SLAs), and inspect evidence submitted by technicians.'
+                : 'Click "Start Repair Job" when you begin maintenance on-site. Once fixed, describe what was done and upload a photo of the completed repair to submit for Administrator sign-off.'
+              }
+            </p>
+          </div>
+        </div>
+
+        {/* Dual Filter Bars */}
+        <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800 backdrop-blur">
+          {/* 1. Status Filter Bar */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-400 flex items-center gap-1 font-medium mr-1">
+              <ListFilter className="w-3.5 h-3.5" /> Work Order Status:
+            </span>
+            {/* All Tasks */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter('ALL')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                statusFilter === 'ALL'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+              }`}
+            >
+              All Tasks
+              <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-slate-800 text-slate-300 font-mono">
+                {allCount}
+              </span>
+            </button>
+
+            {/* Passed Deadline (Overdue) - Dedicated Category */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter('OVERDUE')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                statusFilter === 'OVERDUE'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                  : 'bg-slate-900 text-slate-400 hover:text-rose-300 border border-slate-800'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full bg-rose-500 ${overdueCount > 0 ? 'animate-ping' : ''}`} />
+              Passed Deadline
+              <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-rose-500/20 text-rose-300 font-mono font-bold">
+                {overdueCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter('ASSIGNED')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                statusFilter === 'ASSIGNED'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-slate-900 text-slate-400 hover:text-blue-300 border border-slate-800'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+              Ready to Start
+              <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-blue-500/20 text-blue-300 font-mono">
+                {assignedCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter('IN_PROGRESS')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                statusFilter === 'IN_PROGRESS'
+                  ? 'bg-amber-600 text-white shadow-md'
+                  : 'bg-slate-900 text-slate-400 hover:text-amber-300 border border-slate-800'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Repair Underway
+              <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-amber-500/20 text-amber-300 font-mono">
+                {inProgressCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter('COMPLETED')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                statusFilter === 'COMPLETED'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-slate-900 text-slate-400 hover:text-emerald-300 border border-slate-800'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              Awaiting Verification
+              <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-emerald-500/20 text-emerald-300 font-mono">
+                {completedCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter('CLOSED')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                statusFilter === 'CLOSED'
+                  ? 'bg-slate-700 text-white shadow-md'
+                  : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+              }`}
+            >
+              Resolved & Closed
+              <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-slate-800 text-slate-300 font-mono">
+                {closedCount}
+              </span>
+            </button>
+          </div>
+
+          {/* 2. Priority / Severity Filter Bar */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/60">
+            <span className="text-xs text-slate-400 flex items-center gap-1 font-medium mr-1">
+              <Filter className="w-3.5 h-3.5" /> Severity Filter:
+            </span>
+            {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((lvl) => (
+              <button
+                key={lvl}
+                type="button"
+                onClick={() => setPriorityFilter(lvl)}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                  priorityFilter === lvl 
+                    ? 'bg-indigo-600 text-white' 
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                {lvl}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -149,23 +380,43 @@ export default function TechnicianTasksPage() {
         {/* Work Orders List */}
         <Card className="bg-slate-900/80 border-slate-800">
           <CardHeader>
-            <CardTitle className="text-white text-base">My Assigned Work Orders ({tasks.length})</CardTitle>
+            <CardTitle className="text-white text-base">
+              {isAdmin ? 'Campus Maintenance Work Orders' : 'My Assigned Work Orders'} ({filteredTasks.length})
+            </CardTitle>
             <CardDescription className="text-slate-400 text-xs">
-              Execute assigned repairs, update operational status, and record photographic completion evidence
+              {isAdmin 
+                ? 'Supervise technician work orders, inspect repair status, and review photographic evidence'
+                : 'Execute assigned repairs, update operational status, and record photographic completion evidence'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {loading ? (
               <div className="py-12 text-center text-slate-500 flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" /> Loading your assigned work orders...
+                <Loader2 className="w-5 h-5 animate-spin" /> Loading campus maintenance work orders...
               </div>
             ) : tasks.length === 0 ? (
               <div className="py-12 text-center text-slate-500 border border-dashed border-slate-800 rounded-lg">
-                No work orders currently assigned to you. Great job!
+                No work orders currently assigned. All systems are operational!
+              </div>
+            ) : filteredTasks.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 border border-dashed border-slate-800 rounded-lg space-y-3">
+                <p>No work orders match the selected filters ({statusFilter !== 'ALL' ? statusFilter : ''} {priorityFilter !== 'ALL' ? `${priorityFilter} Priority` : ''}).</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setStatusFilter('ALL');
+                    setPriorityFilter('ALL');
+                  }}
+                  className="text-xs border-slate-800 text-indigo-400 hover:text-white"
+                >
+                  Clear Filters
+                </Button>
               </div>
             ) : (
               <div className="space-y-4">
-                {tasks.map((wo) => {
+                {filteredTasks.map((wo) => {
                   const req = wo.Request || wo.request;
                   const room = req?.Room || req?.room;
                   const floor = room?.Floor || room?.floor;
@@ -174,33 +425,55 @@ export default function TechnicianTasksPage() {
                   const asset = req?.Asset || req?.asset;
 
                   const sla = getRemainingSLA(wo.sla_deadline || wo.SLADeadline);
-                  const isCompleted = wo.status === 'COMPLETED' || wo.status === 'CLOSED';
+                  const isCompleted = wo.status === 'COMPLETED';
+                  const isClosed = wo.status === 'CLOSED';
 
                   return (
                     <div
                       key={wo.ID}
                       className="p-5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-4 hover:border-slate-700 transition"
                     >
-                      {/* Top Bar */}
+                      {/* Top Bar: Ticket ID, Severity Badge, Status Badge, SLA */}
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-xs font-bold text-amber-400">{req?.ticket_number}</span>
+                          
+                          {/* Priority / Severity Badge */}
                           <Badge
                             className={`text-[10px] ${
-                              wo.status === 'ASSIGNED' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
-                              wo.status === 'IN_PROGRESS' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse' :
-                              'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              req?.calculated_priority === 'CRITICAL' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                              req?.calculated_priority === 'HIGH' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                              req?.calculated_priority === 'MEDIUM' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                              'bg-slate-700/50 text-slate-300 border border-slate-600'
                             }`}
                           >
-                            Status: {wo.status}
+                            {req?.calculated_priority || 'MEDIUM'} Priority
                           </Badge>
-                          <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-300">
-                            {building?.name || 'Faculty'} • Room {room?.room_number || 'General'}
-                          </Badge>
+
+                          {/* Human-Friendly Status Badge */}
+                          {isTaskOverdue(wo) ? (
+                            <Badge className="text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse font-bold">
+                              🚨 PASSED DEADLINE (OVERDUE)
+                            </Badge>
+                          ) : (
+                            <Badge
+                              className={`text-[10px] ${
+                                wo.status === 'ASSIGNED' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
+                                wo.status === 'IN_PROGRESS' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse' :
+                                wo.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse' :
+                                'bg-slate-800 text-slate-300 border border-slate-700'
+                              }`}
+                            >
+                              {wo.status === 'ASSIGNED' ? 'Ready to Start (Assigned)' :
+                               wo.status === 'IN_PROGRESS' ? 'Repair Underway (In Progress)' :
+                               wo.status === 'COMPLETED' ? 'Completed (Awaiting Sign-off)' :
+                               'Resolved & Closed'}
+                            </Badge>
+                          )}
                         </div>
 
                         {/* SLA Countdown Timer */}
-                        {sla && !isCompleted && (
+                        {sla && !isCompleted && !isClosed && (
                           <Badge
                             variant="outline"
                             className={`text-[11px] font-mono px-2.5 py-0.5 flex items-center gap-1 ${
@@ -210,22 +483,47 @@ export default function TechnicianTasksPage() {
                             }`}
                           >
                             <Hourglass className="w-3 h-3" />
-                            {sla.breached ? '🔴 SLA OVERDUE' : `⚡ SLA: ${sla.text}`}
+                            {sla.breached ? '🔴 Target Deadline Passed (SLA Overdue)' : `⏱️ Target Deadline: ${sla.text}`}
                           </Badge>
                         )}
                       </div>
 
+                      {/* Exact Maintenance Location Breadcrumb */}
+                      <div className="p-3 rounded-lg bg-indigo-950/25 border border-indigo-500/20 text-xs space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-indigo-400 font-semibold text-[11px]">
+                          <MapPin className="w-3.5 h-3.5 shrink-0" />
+                          <span>Exact Maintenance Location Path:</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-medium">
+                            IT Faculty
+                          </span>
+                          <span className="text-slate-600 font-bold">➔</span>
+                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-indigo-300 font-medium">
+                            {floor ? (floor.floor_number === 0 ? 'Floor 0 (Ground Floor)' : `Floor ${floor.floor_number}`) : 'Ground Floor'}
+                          </span>
+                          <span className="text-slate-600 font-bold">➔</span>
+                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-amber-300 font-medium">
+                            {getBuildingDisplayName(building?.name, room?.room_number)}
+                          </span>
+                          <span className="text-slate-600 font-bold">➔</span>
+                          <span className="px-2.5 py-0.5 rounded bg-indigo-600/20 border border-indigo-500/40 text-white font-bold">
+                            Room {room?.room_number || 'Main Area'} {room?.room_type ? `(${room.room_type})` : ''}
+                          </span>
+                        </div>
+                      </div>
+
                       {/* Equipment & Description */}
                       <div className="space-y-1">
-                        {asset && (
+                        {(req?.custom_equipment_name || req?.equipment_category || asset?.name) && (
                           <div className="text-xs text-indigo-300 font-semibold flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5" /> Target Equipment: {asset.name} [{asset.asset_tag}]
+                            <Sparkles className="w-3.5 h-3.5" /> Target Equipment: {req?.custom_equipment_name || req?.equipment_category || asset?.name} {asset?.asset_tag ? `[${asset.asset_tag}]` : ''}
                           </div>
                         )}
                         <p className="text-sm text-slate-200">{req?.description}</p>
                       </div>
 
-                      {/* Before Photo & Reporter Info */}
+                      {/* Before Photo & Personnel Info */}
                       <div className="flex flex-wrap items-center gap-4 pt-1">
                         {req?.image_url && (
                           <div className="space-y-1">
@@ -237,11 +535,11 @@ export default function TechnicianTasksPage() {
                         )}
                         <div className="text-xs text-slate-400 space-y-1">
                           <div>Reported by: <strong className="text-slate-300">{reporter?.full_name || 'Campus User'}</strong></div>
-                          <div>Room Type: <strong className="text-slate-300">{room?.room_type || 'General Facility'}</strong></div>
+                          <div>Assigned Technician: <strong className="text-indigo-300">{wo.Technician?.full_name || wo.technician?.full_name || user?.full_name || 'Assigned Technician'}</strong></div>
                         </div>
                       </div>
 
-                      {/* Workflow State Machine Actions */}
+                      {/* Workflow State Actions */}
                       <div className="border-t border-slate-900 pt-3">
                         {wo.status === 'ASSIGNED' && (
                           <Button
@@ -249,7 +547,7 @@ export default function TechnicianTasksPage() {
                             disabled={actionLoading}
                             className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-4 py-2 flex items-center gap-2 shadow-lg shadow-amber-600/20"
                           >
-                            <Play className="w-4 h-4 fill-white" /> Start Job (Begin Clock)
+                            <Play className="w-4 h-4 fill-white" /> Start Repair Job (Start Timer)
                           </Button>
                         )}
 
@@ -257,7 +555,7 @@ export default function TechnicianTasksPage() {
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
-                                <Wrench className="w-3.5 h-3.5" /> Repair Completion Form
+                                <Wrench className="w-3.5 h-3.5" /> Submit Completed Repair Work
                               </span>
                             </div>
 
@@ -267,7 +565,7 @@ export default function TechnicianTasksPage() {
                                 setActiveTaskId(wo.ID);
                                 setNotes(e.target.value);
                               }}
-                              placeholder="Describe what was repaired (e.g., Unclogged condensate drain line and recharged refrigerant R410A)..."
+                              placeholder="Describe what was repaired (e.g., Replaced damaged chair leg, tightened screws, cleaned filters)..."
                               rows={3}
                               className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 placeholder:text-slate-600 focus:ring-1 focus:ring-amber-500"
                             />
@@ -276,7 +574,7 @@ export default function TechnicianTasksPage() {
                               <div className="flex items-center gap-3">
                                 <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-300 transition">
                                   <Camera className="w-4 h-4 text-amber-400" />
-                                  {afterImageFile ? 'Change After-Photo' : 'Attach Repaired Photo'}
+                                  {afterImageFile ? 'Change Fixed Equipment Photo' : 'Upload Photo of Fixed Equipment'}
                                   <input
                                     type="file"
                                     accept="image/*"
@@ -304,25 +602,48 @@ export default function TechnicianTasksPage() {
                                 className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 flex items-center gap-2 shadow-lg shadow-emerald-600/20"
                               >
                                 {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                                Complete & Submit for Verification
+                                Submit Repair for Admin Verification
                               </Button>
                             </div>
                           </div>
                         )}
 
                         {isCompleted && (
-                          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 space-y-2">
+                          <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 space-y-2">
                             <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
-                              <CheckCircle2 className="w-4 h-4" /> Work Completed • Awaiting Admin Final Verification
+                              <CheckCircle2 className="w-4 h-4" /> Repair Finished by Technician • Waiting for Administrator Sign-off
                             </div>
                             {wo.technician_notes && (
-                              <p className="text-xs text-slate-300 italic">"{wo.technician_notes}"</p>
+                              <p className="text-xs text-slate-300">
+                                <span className="text-slate-400 font-medium">Technician Notes:</span> "{wo.technician_notes}"
+                              </p>
                             )}
                             {wo.after_image_url && (
                               <div className="pt-1">
-                                <span className="text-[10px] text-slate-400 font-semibold uppercase">Repaired Evidence</span>
+                                <span className="text-[10px] text-slate-400 font-semibold uppercase">Photo of Fixed Equipment:</span>
                                 <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 mt-1">
-                                  <img src={wo.after_image_url} alt="Repaired" className="w-full h-full object-cover" />
+                                  <img src={wo.after_image_url} alt="Repaired Evidence" className="w-full h-full object-cover" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {isClosed && (
+                          <div className="p-3.5 rounded-lg bg-slate-800/60 border border-slate-700/60 space-y-2">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+                              <CheckCircle2 className="w-4 h-4 text-indigo-400" /> Work Order Verified & Closed by Administrator
+                            </div>
+                            {wo.technician_notes && (
+                              <p className="text-xs text-slate-300">
+                                <span className="text-slate-400 font-medium">Final Repair Notes:</span> "{wo.technician_notes}"
+                              </p>
+                            )}
+                            {wo.after_image_url && (
+                              <div className="pt-1">
+                                <span className="text-[10px] text-slate-400 font-semibold uppercase">Photo of Fixed Equipment:</span>
+                                <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 mt-1">
+                                  <img src={wo.after_image_url} alt="Repaired Evidence" className="w-full h-full object-cover" />
                                 </div>
                               </div>
                             )}
@@ -336,7 +657,7 @@ export default function TechnicianTasksPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </main>
     </div>
   );
 }

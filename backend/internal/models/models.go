@@ -12,6 +12,7 @@ type User struct {
 	PasswordHash  string   `gorm:"not null" json:"-"`
 	FullName      string   `gorm:"not null" json:"full_name"`
 	Role          UserRole `gorm:"type:varchar(20);not null" json:"role"`
+	PhoneNumber   string   `gorm:"type:varchar(20)" json:"phone_number"`
 	SkillCategory string   `gorm:"type:varchar(50)" json:"skill_category"` // HVAC, Electrical, Plumbing, IT
 	IsActive      bool     `gorm:"default:true" json:"is_active"`
 }
@@ -57,10 +58,12 @@ type MaintenanceRequest struct {
 	gorm.Model
 	TicketNumber       string        `gorm:"uniqueIndex;not null" json:"ticket_number"` // e.g. "FF-10001"
 	ReporterID         uint          `gorm:"not null" json:"reporter_id"`
-	AssetID            *uint         `json:"asset_id"`
-	RoomID             uint          `gorm:"not null" json:"room_id"`
-	Description        string        `gorm:"not null" json:"description"`
-	ImageURL           string        `json:"image_url"`
+	AssetID             *uint         `json:"asset_id"`
+	RoomID              uint          `gorm:"not null" json:"room_id"`
+	EquipmentCategory   string        `gorm:"type:varchar(100)" json:"equipment_category"`
+	CustomEquipmentName string        `gorm:"type:varchar(150)" json:"custom_equipment_name"`
+	Description         string        `gorm:"not null" json:"description"`
+	ImageURL            string        `json:"image_url"`
 	
 	// Deterministic Priority Engine Inputs
 	SafetyRisk         bool          `gorm:"default:false" json:"safety_risk"`
@@ -104,4 +107,18 @@ type AuditLog struct {
 	PreviousState string `json:"previous_state"`
 	NewState      string `json:"new_state"`
 	Actor         User   `gorm:"foreignKey:ActorID" json:"actor,omitempty"`
+}
+
+// SMS and Phone Notifications
+type SMSNotification struct {
+	gorm.Model
+	UserID         uint   `gorm:"not null" json:"user_id"`
+	RecipientPhone string `gorm:"type:varchar(30);not null" json:"recipient_phone"`
+	RecipientName  string `gorm:"type:varchar(100);not null" json:"recipient_name"`
+	Message        string `gorm:"not null" json:"message"`
+	Type           string `gorm:"type:varchar(50);not null" json:"type"` // "ASSIGNMENT", "COMPLETION"
+	TicketNumber   string `gorm:"type:varchar(50)" json:"ticket_number"`
+	Delivered      bool   `gorm:"default:true" json:"delivered"`
+	IsRead         bool   `gorm:"default:false" json:"is_read"`
+	User           User   `gorm:"foreignKey:UserID" json:"-"`
 }

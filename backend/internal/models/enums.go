@@ -5,6 +5,7 @@ type UserRole string
 
 const (
 	RoleStudent    UserRole = "STUDENT"
+	RoleStaff      UserRole = "STAFF"
 	RoleTechnician UserRole = "TECHNICIAN"
 	RoleAdmin      UserRole = "ADMIN"
 )

@@ -40,14 +40,18 @@ func GetAssetByTag(c *gin.Context) {
 	var floor models.Floor
 	database.DB.Preload("Building").First(&floor, room.FloorID)
 
-	// Return flat IDs so the frontend can populate dropdowns directly
+	// Return flat IDs and metadata so the frontend can populate fields directly
 	c.JSON(http.StatusOK, gin.H{
 		"building_id":   floor.BuildingID,
 		"building_name": floor.Building.Name,
 		"floor_id":      floor.ID,
+		"floor_number":  floor.FloorNumber,
 		"room_id":       room.ID,
 		"room_number":   room.RoomNumber,
+		"room_type":     room.RoomType,
 		"asset_id":      asset.ID,
 		"asset_name":    asset.Name,
+		"asset_tag":     asset.AssetTag,
+		"category":      asset.Category,
 	})
 }

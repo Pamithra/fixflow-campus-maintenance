@@ -17,4 +17,23 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      const status = error.response.status;
+      if (status === 401) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('fixflow_token');
+          localStorage.removeItem('fixflow_user');
+          window.location.href = '/login';
+        }
+      } else if (status === 403) {
+        console.warn('FixFlow Access Denied (403): Current user does not have permission for this resource.');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

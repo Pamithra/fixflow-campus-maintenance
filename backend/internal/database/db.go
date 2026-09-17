@@ -38,6 +38,7 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 		&models.MaintenanceRequest{},
 		&models.WorkOrder{},
 		&models.AuditLog{},
+		&models.SMSNotification{},
 	)
 	if err != nil {
 		log.Fatalf("❌ Failed to run database auto-migrations: %v", err)
