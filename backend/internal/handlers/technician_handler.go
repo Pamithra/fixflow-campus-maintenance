@@ -9,6 +9,7 @@ import (
 	"fixflow-backend/internal/models"
 	"github.com/gin-gonic/gin"
 	"fixflow-backend/internal/websocket"
+	"gorm.io/gorm"
 )
 
 // GetTechnicianTasks returns all work orders assigned to the logged-in technician (or all for Admin)
@@ -37,6 +38,38 @@ func GetTechnicianTasks(c *gin.Context) {
 	if err := query.Find(&workOrders).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch technician tasks"})
 		return
+	}
+
+	// For Admin: also include unassigned maintenance requests as PENDING DISPATCH tasks
+	if userRoleVal == models.RoleAdmin {
+		var unassignedRequests []models.MaintenanceRequest
+		err := database.DB.
+			Preload("Room").
+			Preload("Room.Floor").
+			Preload("Room.Floor.Building").
+			Preload("Asset").
+			Preload("Reporter").
+			Where("status = ?", models.StatusReported).
+			Order("created_at desc").
+			Find(&unassignedRequests).Error
+
+		if err == nil {
+			var pendingWOs []models.WorkOrder
+			for _, req := range unassignedRequests {
+				reqCopy := req
+				pendingWOs = append(pendingWOs, models.WorkOrder{
+					Model: gorm.Model{
+						ID:        reqCopy.ID,
+						CreatedAt: reqCopy.CreatedAt,
+						UpdatedAt: reqCopy.UpdatedAt,
+					},
+					RequestID: reqCopy.ID,
+					Request:   &reqCopy,
+					Status:    models.WorkOrderStatus("PENDING"),
+				})
+			}
+			workOrders = append(pendingWOs, workOrders...)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"work_orders": workOrders})

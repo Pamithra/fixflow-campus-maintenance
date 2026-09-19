@@ -140,36 +140,20 @@ export default function Navbar() {
         <nav className="flex items-center gap-1 sm:gap-2">
           {/* ADMIN LINKS */}
           {role === 'ADMIN' && (
-            <>
-              <Link href="/dashboard">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className={`text-xs gap-1.5 h-8 px-2.5 ${
-                    pathname === '/dashboard' 
-                      ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-medium' 
-                      : 'text-slate-300 hover:text-white hover:bg-slate-900'
-                  }`}
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">Command</span> Dashboard
-                </Button>
-              </Link>
-              <Link href="/tasks">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className={`text-xs gap-1.5 h-8 px-2.5 ${
-                    pathname === '/tasks' 
-                      ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-medium' 
-                      : 'text-slate-300 hover:text-white hover:bg-slate-900'
-                  }`}
-                >
-                  <Wrench className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">Technician</span> View
-                </Button>
-              </Link>
-            </>
+            <Link href="/dashboard">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={`text-xs gap-1.5 h-8 px-2.5 ${
+                  pathname === '/dashboard' 
+                    ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-medium' 
+                    : 'text-slate-300 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Command</span> Dashboard
+              </Button>
+            </Link>
           )}
 
           {/* TECHNICIAN LINKS */}
@@ -319,7 +303,7 @@ export default function Navbar() {
               className="h-8 px-2.5 border-slate-800 hover:bg-slate-900 text-slate-300 hover:text-white text-xs gap-1.5"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sign Out</span>
+              <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>
 

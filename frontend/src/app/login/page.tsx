@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useState, Suspense } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
+  AlertCircle,
+  ArrowLeft,
   ArrowRight, 
   Loader2, 
   Sparkles, 
@@ -13,11 +16,12 @@ import {
   Wrench, 
   ShieldCheck, 
   UserPlus, 
-  LogIn,
-  KeyRound,
-  CheckCircle2,
-  Lock,
-  Save
+  LogIn, 
+  KeyRound, 
+  CheckCircle2, 
+  Lock, 
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,57 +33,57 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get('redirect') || '';
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const modeParam = searchParams.get('mode');
+  const [mode, setMode] = useState<'signin' | 'signup'>(modeParam === 'signup' ? 'signup' : 'signin');
+
+  React.useEffect(() => {
+    if (modeParam === 'signup') {
+      setMode('signup');
+    } else if (modeParam === 'signin') {
+      setMode('signin');
+    }
+  }, [modeParam]);
 
   // Sign In Form State
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // Sign Up Form State
   const [fullName, setFullName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [role, setRole] = useState<'STUDENT' | 'STAFF' | 'TECHNICIAN'>('STUDENT');
-  const [skillCategory, setSkillCategory] = useState('HVAC');
+  const [skillCategory, setSkillCategory] = useState('General');
   const [signupPassword, setSignupPassword] = useState('');
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // UI State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
-
-  // Post-Signup Save Prompt State
-  const [showSavePrompt, setShowSavePrompt] = useState(false);
-  const [pendingAuth, setPendingAuth] = useState<{ token: string; user: any; email: string; pass: string } | null>(null);
 
   // Forgot Password State
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
   const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState('');
 
-  // Load saved credentials on mount
+  // Clear any previously saved credentials on mount so inputs always start clean on load or logout
   React.useEffect(() => {
-    const savedCreds = localStorage.getItem('fixflow_saved_credentials');
-    if (savedCreds) {
-      try {
-        const parsed = JSON.parse(savedCreds);
-        if (parsed.email) setLoginEmail(parsed.email);
-        if (parsed.password) setLoginPassword(parsed.password);
-        setRememberMe(true);
-      } catch (e) {}
-    } else {
-      const savedEmail = localStorage.getItem('fixflow_remembered_email');
-      if (savedEmail) {
-        setLoginEmail(savedEmail);
-        setRememberMe(true);
-      }
-    }
+    try {
+      localStorage.removeItem('fixflow_saved_credentials');
+      localStorage.removeItem('fixflow_remembered_email');
+    } catch (e) {}
+    setLoginEmail('');
+    setLoginPassword('');
   }, []);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -88,20 +92,33 @@ function LoginForm() {
     setSuccess('');
     setLoading(true);
 
-    if (rememberMe) {
-      localStorage.setItem('fixflow_remembered_email', loginEmail);
-    } else {
-      localStorage.removeItem('fixflow_remembered_email');
-    }
-
     try {
       const res = await api.post('/auth/login', { 
         email: loginEmail, 
         password: loginPassword 
       });
+
+      // Invoke browser native Credential Management API to trigger Google Chrome / Edge native "Save password?" prompt
+      if (typeof window !== 'undefined' && 'PasswordCredential' in window && (navigator as any).credentials) {
+        try {
+          const cred = new (window as any).PasswordCredential({
+            id: loginEmail,
+            password: loginPassword,
+            name: loginEmail,
+          });
+          (navigator as any).credentials.store(cred).catch(() => {});
+        } catch (e) {}
+      }
+
       login(res.data.token, res.data.user, redirectUrl || undefined);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid email or password. Please try again.');
+      if (!err.response) {
+        setError('Unable to connect to the server. Please check your network connection and try again.');
+      } else if (err.response.status === 401) {
+        setError('Incorrect email or password. Please check your credentials and try again.');
+      } else {
+        setError(err.response.data?.error || 'Incorrect email or password. Please check your credentials and try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -137,33 +154,21 @@ function LoginForm() {
         payload.skill_category = skillCategory;
       }
 
-      const res = await api.post('/auth/register', payload);
+      await api.post('/auth/register', payload);
       setLoading(false);
-      setPendingAuth({
-        token: res.data.token,
-        user: res.data.user,
-        email: signupEmail,
-        pass: signupPassword,
-      });
-      setShowSavePrompt(true);
+      // Auto-transition to sign-in section with prefilled credentials
+      setLoginEmail(signupEmail);
+      setLoginPassword(signupPassword);
+      setMode('signin');
+      setSuccess('Account created successfully! Click Sign In below to proceed.');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed. Please try again.');
+      if (!err.response) {
+        setError('Unable to connect to the server. Please check your network connection and try again.');
+      } else {
+        setError(err.response.data?.error || 'Registration could not be completed. Please check your details and try again.');
+      }
       setLoading(false);
     }
-  };
-
-  const handleConfirmSaveCredentials = (save: boolean) => {
-    if (!pendingAuth) return;
-    if (save) {
-      localStorage.setItem('fixflow_saved_credentials', JSON.stringify({
-        email: pendingAuth.email,
-        password: pendingAuth.pass,
-      }));
-      setLoginEmail(pendingAuth.email);
-      setLoginPassword(pendingAuth.pass);
-    }
-    setShowSavePrompt(false);
-    login(pendingAuth.token, pendingAuth.user, redirectUrl || undefined);
   };
 
   const handleResetPasswordSubmit = async (e: React.FormEvent) => {
@@ -204,14 +209,27 @@ function LoginForm() {
 
   return (
     <div className="w-full max-w-md relative z-10 space-y-6">
+      {/* Back to Home Navigation */}
+      <div className="flex items-center justify-between">
+        <Link 
+          href="/" 
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white transition bg-slate-900/70 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-800 hover:border-slate-700 shadow-sm"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Home</span>
+        </Link>
+      </div>
+
       {/* Brand Header */}
       <div className="text-center space-y-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold tracking-wide">
+        <Link href="/" className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold tracking-wide hover:bg-indigo-500/20 transition">
           <Sparkles className="w-3.5 h-3.5" /> FixFlow Campus Operations
-        </div>
-        <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center justify-center gap-2">
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">FixFlow</span>
-        </h1>
+        </Link>
+        <Link href="/" className="block group">
+          <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center justify-center gap-2">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 group-hover:from-blue-300 group-hover:to-indigo-300 transition">FixFlow</span>
+          </h1>
+        </Link>
         <p className="text-xs sm:text-sm text-slate-400">
           Faculty of Information Technology • Maintenance & Issue Reporting
         </p>
@@ -221,7 +239,7 @@ function LoginForm() {
       {redirectUrl && (
         <div className="p-3 text-xs bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 rounded-lg flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
-          <span>Please sign in or create an account to access the scanned equipment report.</span>
+          <span>Please sign in or create an account to continue.</span>
         </div>
       )}
 
@@ -268,8 +286,9 @@ function LoginForm() {
 
         <CardContent className="space-y-4 pt-1">
           {error && (
-            <div className="p-3 text-xs bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg">
-              {error}
+            <div className="p-3 text-xs bg-rose-500/10 border border-rose-500/25 text-rose-300 rounded-lg flex items-center gap-2.5 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -286,12 +305,12 @@ function LoginForm() {
                 <label htmlFor="login-email" className="text-xs font-medium text-slate-300">Email</label>
                 <Input
                   id="login-email"
-                  name="email"
+                  name="username"
                   type="email"
                   autoComplete="username email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="e.g. name@fixflow.edu"
+                  placeholder="e.g. name@gmail.com"
                   required
                   className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500 text-xs"
                 />
@@ -313,29 +332,32 @@ function LoginForm() {
                     Forgot password?
                   </button>
                 </div>
-                <Input
-                  id="login-password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500 text-xs"
-                />
-              </div>
-
-              <div className="flex items-center justify-between text-xs pt-0.5">
-                <label className="flex items-center gap-2 cursor-pointer text-slate-400 hover:text-slate-200">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                <div className="relative">
+                  <Input
+                    id="login-password"
+                    name="password"
+                    type={showLoginPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500 text-xs pr-10"
                   />
-                  <span>Remember email on this device</span>
-                </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition focus:outline-none"
+                    aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                    tabIndex={-1}
+                  >
+                    {showLoginPassword ? (
+                      <EyeOff className="w-4 h-4 text-slate-400 hover:text-slate-200" />
+                    ) : (
+                      <Eye className="w-4 h-4 text-slate-400 hover:text-slate-200" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <Button
@@ -375,7 +397,7 @@ function LoginForm() {
                   autoComplete="email"
                   value={signupEmail}
                   onChange={(e) => setSignupEmail(e.target.value)}
-                  placeholder="e.g. kasun@fixflow.edu"
+                  placeholder="e.g. name@gmail.com"
                   required
                   className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 text-xs"
                 />
@@ -405,7 +427,7 @@ function LoginForm() {
                   onChange={(e: any) => setRole(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-md p-2 text-xs text-white focus:ring-1 focus:ring-indigo-500"
                 >
-                  <option value="STUDENT">Student (Report & Track Issues)</option>
+                  <option value="STUDENT">Student</option>
                   <option value="STAFF">Academic / Administrative Staff</option>
                   <option value="TECHNICIAN">Maintenance Technician</option>
                 </select>
@@ -421,11 +443,10 @@ function LoginForm() {
                     onChange={(e) => setSkillCategory(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-md p-2 text-xs text-white focus:ring-1 focus:ring-amber-500"
                   >
-                    <option value="HVAC">HVAC (Air Conditioning & Cooling)</option>
+                    <option value="General">General Maintenance (Air Conditioning & General)</option>
                     <option value="Electrical">Electrical & Power Systems</option>
                     <option value="Plumbing">Plumbing & Water Fixtures</option>
                     <option value="IT">IT Hardware & Projectors</option>
-                    <option value="General">General Maintenance</option>
                   </select>
                 </div>
               )}
@@ -433,31 +454,61 @@ function LoginForm() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label htmlFor="signup-password" className="text-xs font-medium text-slate-300">Password</label>
-                  <Input
-                    id="signup-password"
-                    name="password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    placeholder="Min 6 chars"
-                    required
-                    className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 text-xs"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="signup-password"
+                      name="password"
+                      type={showSignupPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={signupPassword}
+                      onChange={(e) => setSignupPassword(e.target.value)}
+                      placeholder="Min 6 chars"
+                      required
+                      className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 text-xs pr-8"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSignupPassword(!showSignupPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition focus:outline-none"
+                      aria-label={showSignupPassword ? "Hide password" : "Show password"}
+                      tabIndex={-1}
+                    >
+                      {showSignupPassword ? (
+                        <EyeOff className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label htmlFor="signup-confirm-password" className="text-xs font-medium text-slate-300">Confirm Password</label>
-                  <Input
-                    id="signup-confirm-password"
-                    name="confirm_password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repeat password"
-                    required
-                    className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 text-xs"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="signup-confirm-password"
+                      name="confirm_password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repeat password"
+                      required
+                      className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 text-xs pr-8"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition focus:outline-none"
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -472,53 +523,6 @@ function LoginForm() {
           )}
         </CardContent>
       </Card>
-
-      {/* Post-Signup Save Credentials Dialog */}
-      <Dialog open={showSavePrompt} onOpenChange={(open) => !open && handleConfirmSaveCredentials(false)}>
-        <DialogContent className="bg-slate-900 border border-slate-800 text-white sm:max-w-md">
-          <DialogHeader>
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-            </div>
-            <DialogTitle className="text-base text-white">Account Created Successfully!</DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
-              Save your email and password on this device for 1-click sign in next time?
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs space-y-1">
-            <div className="flex justify-between text-slate-300">
-              <span className="text-slate-500">Email:</span>
-              <span className="font-mono">{pendingAuth?.email}</span>
-            </div>
-            <div className="flex justify-between text-slate-300">
-              <span className="text-slate-500">Password:</span>
-              <span className="font-mono">••••••••</span>
-            </div>
-          </div>
-
-          <div className="flex gap-2 justify-end pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleConfirmSaveCredentials(false)}
-              className="text-xs text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white"
-            >
-              No, Thanks
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => handleConfirmSaveCredentials(true)}
-              className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5"
-            >
-              <Save className="w-3.5 h-3.5" />
-              Yes, Save Credentials
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Forgot / Reset Password Dialog */}
       <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
@@ -552,7 +556,7 @@ function LoginForm() {
                 type="email"
                 value={forgotEmail}
                 onChange={(e) => setForgotEmail(e.target.value)}
-                placeholder="name@fixflow.edu"
+                placeholder="e.g. name@gmail.com"
                 required
                 className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 text-xs"
               />
@@ -560,26 +564,56 @@ function LoginForm() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-300">New Password</label>
-              <Input
-                type="password"
-                value={forgotNewPassword}
-                onChange={(e) => setForgotNewPassword(e.target.value)}
-                placeholder="Min 6 characters"
-                required
-                className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 text-xs"
-              />
+              <div className="relative">
+                <Input
+                  type={showForgotNewPassword ? 'text' : 'password'}
+                  value={forgotNewPassword}
+                  onChange={(e) => setForgotNewPassword(e.target.value)}
+                  placeholder="Min 6 characters"
+                  required
+                  className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 text-xs pr-8"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition focus:outline-none"
+                  aria-label={showForgotNewPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  {showForgotNewPassword ? (
+                    <EyeOff className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-300">Confirm New Password</label>
-              <Input
-                type="password"
-                value={forgotConfirmPassword}
-                onChange={(e) => setForgotConfirmPassword(e.target.value)}
-                placeholder="Repeat new password"
-                required
-                className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 text-xs"
-              />
+              <div className="relative">
+                <Input
+                  type={showForgotConfirmPassword ? 'text' : 'password'}
+                  value={forgotConfirmPassword}
+                  onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                  placeholder="Repeat new password"
+                  required
+                  className="bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 text-xs pr-8"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition focus:outline-none"
+                  aria-label={showForgotConfirmPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  {showForgotConfirmPassword ? (
+                    <EyeOff className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="flex gap-2 justify-end pt-3">

@@ -48,11 +48,11 @@ func Seed(db *gorm.DB) {
 		},
 		{
 			FullName:      "Kasun Perera",
-			Email:         "kasun.hvac@fixflow.edu",
+			Email:         "kasun.general@fixflow.edu",
 			PasswordHash:  hashPassword("Tech@123"),
 			PhoneNumber:   "+94763334455",
 			Role:          models.RoleTechnician,
-			SkillCategory: "HVAC",
+			SkillCategory: "General",
 			IsActive:      true,
 		},
 		{
@@ -197,7 +197,7 @@ func Seed(db *gorm.DB) {
 		{
 			AssetTag: "AC-IT-NEW-ERPLAB-01",
 			Name:     "Daikin Inverter AC 24000 BTU",
-			Category: "HVAC",
+			Category: "General",
 			RoomID:   roomERP.ID,
 			Status:   "OPERATIONAL",
 		},
@@ -211,7 +211,7 @@ func Seed(db *gorm.DB) {
 		{
 			AssetTag: "AC-IT-OLD-LAB1-01",
 			Name:     "Panasonic 18000 BTU Air Conditioner",
-			Category: "HVAC",
+			Category: "General",
 			RoomID:   roomLab1.ID,
 			Status:   "OPERATIONAL",
 		},
@@ -225,7 +225,7 @@ func Seed(db *gorm.DB) {
 		{
 			AssetTag: "AC-IT-NEW-4LH02A-01",
 			Name:     "Auditorium Central AC Unit 01",
-			Category: "HVAC",
+			Category: "General",
 			RoomID:   roomAuditorium2.ID,
 			Status:   "OPERATIONAL",
 		},

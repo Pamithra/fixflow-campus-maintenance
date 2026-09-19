@@ -34,6 +34,7 @@ func GetAllIncidents(c *gin.Context) {
 		Preload("Room.Floor.Building").
 		Preload("Asset").
 		Preload("Reporter").
+		Preload("WorkOrder").
 		Preload("WorkOrder.Technician").
 		Order("created_at desc").
 		Find(&tickets).Error
@@ -62,8 +63,8 @@ func GetRecommendations(c *gin.Context) {
 		targetCategory = ticket.Asset.Category
 	} else if ticket.EquipmentCategory != "" {
 		eq := strings.ToUpper(ticket.EquipmentCategory)
-		if strings.Contains(eq, "HVAC") || strings.Contains(eq, "AIR CONDITIONER") || strings.Contains(eq, "AC") {
-			targetCategory = "HVAC"
+		if strings.Contains(eq, "AIR CONDITIONER") || strings.Contains(eq, "AC") || strings.Contains(eq, "HVAC") || strings.Contains(eq, "COOLING") {
+			targetCategory = "General"
 		} else if strings.Contains(eq, "IT") || strings.Contains(eq, "COMPUTER") || strings.Contains(eq, "PROJECTOR") || strings.Contains(eq, "NETWORK") || strings.Contains(eq, "WI-FI") {
 			targetCategory = "IT"
 		} else if strings.Contains(eq, "ELECTRICAL") || strings.Contains(eq, "LIGHTING") || strings.Contains(eq, "POWER") {
@@ -175,18 +176,31 @@ func AssignWorkOrder(c *gin.Context) {
 	}
 	deadline := time.Now().Add(time.Duration(slaHours) * time.Hour)
 
-	// Create or update Work Order
-	workOrder := models.WorkOrder{
-		RequestID:    ticket.ID,
-		TechnicianID: &payload.TechnicianID,
-		Status:       models.WorkOrderAssigned,
-		SLADeadline:  deadline,
-		SLABreached:  false,
-	}
-
-	if err := database.DB.Create(&workOrder).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create work order"})
-		return
+	// Create or update Work Order (reassignment support)
+	var workOrder models.WorkOrder
+	isReassignment := false
+	if err := database.DB.Where("request_id = ?", ticket.ID).First(&workOrder).Error; err == nil {
+		isReassignment = true
+		workOrder.TechnicianID = &payload.TechnicianID
+		workOrder.Status = models.WorkOrderAssigned
+		workOrder.SLADeadline = deadline
+		workOrder.SLABreached = false
+		if err := database.DB.Save(&workOrder).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reassign work order"})
+			return
+		}
+	} else {
+		workOrder = models.WorkOrder{
+			RequestID:    ticket.ID,
+			TechnicianID: &payload.TechnicianID,
+			Status:       models.WorkOrderAssigned,
+			SLADeadline:  deadline,
+			SLABreached:  false,
+		}
+		if err := database.DB.Create(&workOrder).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create work order"})
+			return
+		}
 	}
 
 	// Update ticket status to APPROVED
@@ -194,10 +208,14 @@ func AssignWorkOrder(c *gin.Context) {
 	database.DB.Save(&ticket)
 
 	// Record Audit Log
+	actionName := "ASSIGNED_TECHNICIAN"
+	if isReassignment {
+		actionName = "REASSIGNED_TECHNICIAN"
+	}
 	audit := models.AuditLog{
 		WorkOrderID:   workOrder.ID,
 		ActorID:       adminID,
-		Action:        "ASSIGNED_TECHNICIAN",
+		Action:        actionName,
 		PreviousState: string(models.StatusReported),
 		NewState:      string(models.WorkOrderAssigned),
 	}
@@ -232,19 +250,29 @@ func AssignWorkOrder(c *gin.Context) {
 	}
 
 	// Send message to the user's phone number
+	assignWord := "assigned"
+	if isReassignment {
+		assignWord = "reassigned"
+	}
 	smsMsg := fmt.Sprintf(
-		"FixFlow Alert: Your reported issue (%s) for %s in %s, %s (%s) has been assigned to technician %s.",
+		"FixFlow Alert: Your reported issue (%s) for %s in %s, %s (%s) has been %s to technician %s.",
 		ticket.TicketNumber,
 		equipName,
 		ticket.Room.RoomNumber,
 		ticket.Room.Floor.Building.Name,
 		floorDisplay,
+		assignWord,
 		tech.FullName,
 	)
 	services.SendSMS(ticket.ReporterID, ticket.Reporter.PhoneNumber, ticket.Reporter.FullName, smsMsg, "ASSIGNMENT", ticket.TicketNumber)
 
+	respMsg := fmt.Sprintf("Work order dispatched to %s. SLA Deadline set to %d hours.", tech.FullName, slaHours)
+	if isReassignment {
+		respMsg = fmt.Sprintf("Work order successfully reassigned to %s. SLA Deadline refreshed to %d hours.", tech.FullName, slaHours)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"message":    fmt.Sprintf("Work order created and SMS sent to reporter. SLA Deadline set to %d hours.", slaHours),
+		"message":    respMsg,
 		"work_order": workOrder,
 	})
 }

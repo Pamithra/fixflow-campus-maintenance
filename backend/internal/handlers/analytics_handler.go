@@ -3,6 +3,7 @@ package handlers
 import (
 	"math"
 	"net/http"
+	"time"
 
 	"fixflow-backend/internal/database"
 	"fixflow-backend/internal/models"
@@ -35,15 +36,27 @@ func GetAnalytics(c *gin.Context) {
 	var resolvedTickets int64
 	database.DB.Model(&models.MaintenanceRequest{}).Where("status = ?", models.StatusClosed).Count(&resolvedTickets)
 
-	// 1. SLA Compliance Calculation
-	var totalClosedOrders int64
-	var onTimeOrders int64
-	database.DB.Model(&models.WorkOrder{}).Where("status = ?", models.WorkOrderClosed).Count(&totalClosedOrders)
-	database.DB.Model(&models.WorkOrder{}).Where("status = ? AND sla_breached = ?", models.WorkOrderClosed, false).Count(&onTimeOrders)
+	// 1. SLA Compliance Calculation (includes closed on-time fixes and penalizes open/active breached orders)
+	now := time.Now()
+	var totalEvaluated int64
+	var breachedOrders int64
+
+	// Evaluated work orders: all completed/closed orders + any active orders that have exceeded their deadline or are marked breached
+	database.DB.Model(&models.WorkOrder{}).
+		Where("status IN (?, ?) OR sla_deadline < ? OR sla_breached = ?", models.WorkOrderCompleted, models.WorkOrderClosed, now, true).
+		Count(&totalEvaluated)
+
+	database.DB.Model(&models.WorkOrder{}).
+		Where("sla_breached = ? OR (status NOT IN (?, ?) AND sla_deadline < ?)", true, models.WorkOrderCompleted, models.WorkOrderClosed, now).
+		Count(&breachedOrders)
 
 	slaCompliance := 100.0
-	if totalClosedOrders > 0 {
-		slaCompliance = math.Round((float64(onTimeOrders)/float64(totalClosedOrders))*1000) / 10
+	if totalEvaluated > 0 {
+		compliantOrders := totalEvaluated - breachedOrders
+		if compliantOrders < 0 {
+			compliantOrders = 0
+		}
+		slaCompliance = math.Round((float64(compliantOrders)/float64(totalEvaluated))*1000) / 10
 	}
 
 	// 2. Mean Time To Resolution (MTTR in hours)

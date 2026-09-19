@@ -45,7 +45,7 @@ import Navbar from '@/components/Navbar';
 const EQUIPMENT_CATEGORIES = [
   { id: 'Computers & Workstations', label: 'Computers & Workstations', icon: Monitor },
   { id: 'Projectors & Smart Displays', label: 'Projectors & Smart Displays', icon: Tv },
-  { id: 'Air Conditioners (AC / HVAC)', label: 'Air Conditioners (AC / HVAC)', icon: Wind },
+  { id: 'Air Conditioners (AC / Cooling)', label: 'Air Conditioners (AC / Cooling)', icon: Wind },
   { id: 'Network & Wi-Fi Equipment', label: 'Network & Wi-Fi Equipment', icon: Wifi },
   { id: 'Electrical & Lighting', label: 'Electrical & Lighting', icon: Zap },
   { id: 'Furniture (Chairs, Desks)', label: 'Furniture (Chairs & Desks)', icon: Armchair },
@@ -118,6 +118,9 @@ function ReportContent() {
 
   // 1. Enforce authentication & redirect handling (Admin redirected to dashboard)
   useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('fixflow_logging_out') === 'true') {
+      return;
+    }
     if (!authLoading) {
       if (!user) {
         const currentPath = window.location.pathname + window.location.search;
@@ -140,19 +143,163 @@ function ReportContent() {
     }
   }, [user]);
 
-  // 3. Handle incoming QR tag from URL (?tag=... or ?asset=...)
+  // Helper to map category alias to full category label
+  const normalizeCategory = (cat: string) => {
+    const upper = cat.toUpperCase().trim();
+    if (upper.includes('HVAC') || upper.includes('AC') || upper.includes('COOLING') || upper.includes('AIR')) {
+      return 'Air Conditioners (AC / Cooling)';
+    }
+    if (upper.includes('PROJ') || upper.includes('DISPLAY') || upper.includes('SMART') || upper.includes('SCREEN') || upper.includes('TV')) {
+      return 'Projectors & Smart Displays';
+    }
+    if (upper.includes('NET') || upper.includes('WIFI') || upper.includes('SWITCH') || upper.includes('ROUTER') || upper.includes('AP')) {
+      return 'Network & Wi-Fi Equipment';
+    }
+    if (upper.includes('ELEC') || upper.includes('POWER') || upper.includes('LIGHT') || upper.includes('SOCKET') || upper.includes('BULB')) {
+      return 'Electrical & Lighting';
+    }
+    if (upper.includes('PLUMB') || upper.includes('WATER') || upper.includes('LEAK') || upper.includes('PIPE') || upper.includes('WASHROOM') || upper.includes('TOILET') || upper.includes('SINK')) {
+      return 'Plumbing & Washrooms';
+    }
+    if (upper.includes('FURN') || upper.includes('CHAIR') || upper.includes('DESK') || upper.includes('TABLE') || upper.includes('BENCH')) {
+      return 'Furniture (Chairs, Desks)';
+    }
+    if (upper.includes('IT') || upper.includes('PC') || upper.includes('COMPUTER') || upper.includes('LAB') || upper.includes('WORKSTATION') || upper.includes('KEYBOARD') || upper.includes('MOUSE')) {
+      return 'Computers & Workstations';
+    }
+    return cat;
+  };
+
+  // Helper to resolve Floor, Building/Phase, Room, and Category from parameters or structured text
+  const applyStructuredData = (params: { floor?: any; phase?: any; room?: any; category?: any }) => {
+    let matchedFloor: number | null = null;
+    let matchedBuildingId = '';
+    let matchedRoomId = '';
+    let matchedRoomName = '';
+    let matchedBuildingName = '';
+
+    // 1. Resolve Floor Number (0, 1, 2, 3, 4)
+    if (params.floor !== undefined && params.floor !== null && params.floor !== '') {
+      const parsedFloor = parseInt(params.floor.toString().replace(/[^0-9]/g, ''), 10);
+      if (!isNaN(parsedFloor) && parsedFloor >= 0 && parsedFloor <= 4) {
+        matchedFloor = parsedFloor;
+        setSelectedFloorNum(parsedFloor);
+      }
+    }
+
+    // 2. Resolve Phase / Building (Phase 1 / IT-OLD or Phase 2 / IT-NEW)
+    if (params.phase && facilities.length > 0) {
+      const phaseStr = params.phase.toString().toLowerCase().trim();
+      let targetBuilding: any = null;
+      if (phaseStr.includes('2') || phaseStr.includes('new') || phaseStr.includes('phase 2') || phaseStr.includes('phase2')) {
+        targetBuilding = facilities.find((b: any) => b.code === 'IT-NEW');
+      } else if (phaseStr.includes('1') || phaseStr.includes('old') || phaseStr.includes('phase 1') || phaseStr.includes('phase1')) {
+        targetBuilding = facilities.find((b: any) => b.code === 'IT-OLD');
+      }
+      if (targetBuilding) {
+        matchedBuildingId = (targetBuilding.ID || targetBuilding.id).toString();
+        matchedBuildingName = targetBuilding.name;
+        setSelectedBuildingId(matchedBuildingId);
+      }
+    }
+
+    // 3. Resolve Room Name / Code
+    if (params.room && facilities.length > 0) {
+      const rawRoom = params.room.toString().trim();
+      const cleanQuery = rawRoom.toLowerCase().replace(/[\s\-_]/g, '');
+      let foundRoom: any = null;
+
+      for (const b of facilities) {
+        if (matchedBuildingId && (b.ID || b.id).toString() !== matchedBuildingId) continue;
+
+        const floors = b.floors || b.Floors || [];
+        for (const f of floors) {
+          if (matchedFloor !== null && f.floor_number !== matchedFloor) continue;
+
+          const rooms = f.rooms || f.Rooms || [];
+          for (const r of rooms) {
+            const num = (r.room_number || '').toLowerCase();
+            const cleanNum = num.replace(/[\s\-_]/g, '');
+            const type = (r.room_type || '').toLowerCase();
+            const cleanType = type.replace(/[\s\-_]/g, '');
+
+            if (
+              cleanNum.includes(cleanQuery) || 
+              cleanQuery.includes(cleanNum) || 
+              cleanType.includes(cleanQuery) || 
+              cleanQuery.includes(cleanType)
+            ) {
+              foundRoom = r;
+              matchedRoomId = (r.ID || r.id).toString();
+              matchedRoomName = r.room_number;
+              if (matchedFloor === null) {
+                matchedFloor = f.floor_number;
+                setSelectedFloorNum(f.floor_number);
+              }
+              if (!matchedBuildingId) {
+                matchedBuildingId = (b.ID || b.id).toString();
+                matchedBuildingName = b.name;
+                setSelectedBuildingId(matchedBuildingId);
+              }
+              break;
+            }
+          }
+          if (foundRoom) break;
+        }
+        if (foundRoom) break;
+      }
+
+      if (matchedRoomId) {
+        setSelectedRoomId(matchedRoomId);
+      }
+    }
+
+    // 4. Resolve Category
+    if (params.category) {
+      const normalized = normalizeCategory(params.category.toString());
+      setSelectedCategory(normalized);
+    }
+
+    // Success Notification
+    const infoParts = [];
+    if (params.category) infoParts.push(normalizeCategory(params.category.toString()));
+    if (matchedRoomName) infoParts.push(`Room: ${matchedRoomName}`);
+    if (matchedFloor !== null) infoParts.push(matchedFloor === 0 ? 'Ground Floor' : `Floor ${matchedFloor}`);
+    if (matchedBuildingName) infoParts.push(matchedBuildingName);
+
+    if (infoParts.length > 0) {
+      setSuccessMessage(`📲 QR Equipment Identified: ${infoParts.join(' • ')}! Form fields have been automatically filled.`);
+      setTimeout(() => setSuccessMessage(''), 8000);
+    }
+  };
+
+  // 3. Handle incoming QR parameters or tag from URL
   useEffect(() => {
+    const paramCategory = searchParams.get('category');
+    const paramFloor = searchParams.get('floor');
+    const paramPhase = searchParams.get('phase') || searchParams.get('building');
+    const paramRoom = searchParams.get('room');
     const tag = searchParams.get('tag') || searchParams.get('asset');
-    if (tag && facilities.length > 0) {
+
+    if (paramFloor !== null || paramCategory || paramRoom || paramPhase) {
+      applyStructuredData({
+        floor: paramFloor,
+        phase: paramPhase,
+        room: paramRoom,
+        category: paramCategory,
+      });
+    } else if (tag) {
+      setManualQRTag(tag);
       applyQRTag(tag);
     }
   }, [searchParams, facilities]);
 
-  // 4. Auto-open rating dialog if rateTicket param is present
+  // 4. Auto-open rating dialog if rateTicket param is present and not yet rated
   useEffect(() => {
     if (rateTicketParam && myTickets.length > 0) {
       const found = myTickets.find((t: any) => t.ticket_number === rateTicketParam);
-      if (found) {
+      const isAlreadyRated = found?.work_order?.rating > 0;
+      if (found && !isAlreadyRated) {
         setRatingTicket(found);
         setActiveTab('history');
       }
@@ -167,7 +314,8 @@ function ReportContent() {
         setMyTickets(tickets);
         if (rateTicketParam) {
           const found = tickets.find((t: any) => t.ticket_number === rateTicketParam);
-          if (found) {
+          const isAlreadyRated = found?.work_order?.rating > 0;
+          if (found && !isAlreadyRated) {
             setRatingTicket(found);
             setActiveTab('history');
           }
@@ -183,11 +331,28 @@ function ReportContent() {
       .catch((err) => console.error('Error loading notifications:', err));
   };
 
-  // Instant QR code resolver
+  // Instant QR code resolver (supports database tags and structured category/floor/phase/room)
   const applyQRTag = async (tag: string) => {
     setQrScanning(true);
+
+    // Check if tag contains structured query parameters or pipe delimiters
+    if (tag.includes('=') || tag.includes('&') || tag.includes('|') || tag.includes('?') || tag.toLowerCase().includes('floor') || tag.toLowerCase().includes('phase')) {
+      const cleaned = tag.includes('?') ? tag.split('?')[1] : tag;
+      const urlParams = new URLSearchParams(cleaned.replace(/\|/g, '&'));
+      const floor = urlParams.get('floor');
+      const phase = urlParams.get('phase') || urlParams.get('building');
+      const room = urlParams.get('room');
+      const category = urlParams.get('category');
+
+      if (floor !== null || phase || room || category) {
+        applyStructuredData({ floor, phase, room, category });
+        setQrScanning(false);
+        return;
+      }
+    }
+
     try {
-      const res = await api.get(`/assets/${tag}`);
+      const res = await api.get(`/assets/${encodeURIComponent(tag)}`);
       const data = res.data;
 
       setSelectedFloorNum(data.floor_number);
@@ -196,23 +361,24 @@ function ReportContent() {
       setSelectedAssetId(data.asset_id.toString());
 
       if (data.category) {
-        if (data.category.toUpperCase().includes('HVAC') || data.category.toUpperCase().includes('AC')) {
-          setSelectedCategory('Air Conditioners (AC / HVAC)');
-        } else if (data.category.toUpperCase().includes('IT')) {
-          setSelectedCategory('Projectors & Smart Displays');
-        } else if (data.category.toUpperCase().includes('NETWORK')) {
-          setSelectedCategory('Network & Wi-Fi Equipment');
-        } else if (data.category.toUpperCase().includes('ELECTRICAL')) {
-          setSelectedCategory('Electrical & Lighting');
-        } else {
-          setSelectedCategory(data.category);
-        }
+        setSelectedCategory(normalizeCategory(data.category));
       }
 
       setSuccessMessage(`📲 QR Code Identified: "${data.asset_name}" in ${data.room_number} (${data.building_name})! Location fields have been automatically filled.`);
       setTimeout(() => setSuccessMessage(''), 8000);
     } catch (err) {
-      alert(`Equipment with QR tag "${tag}" was not found in campus database.`);
+      // Fallback: Check if tag is in hyphen format e.g. AC-PHASE2-FLOOR0-ERPLAB or AC-NEW-ERPLAB
+      const parts = tag.split('-');
+      if (parts.length >= 2) {
+        const cat = parts[0];
+        const phase = parts.some(p => p.includes('NEW') || p.includes('PHASE2') || p.includes('P2')) ? '2' : parts.some(p => p.includes('OLD') || p.includes('PHASE1') || p.includes('P1')) ? '1' : '';
+        const floorMatch = tag.match(/floor(\d)/i) || tag.match(/fl(\d)/i);
+        const floor = floorMatch ? floorMatch[1] : undefined;
+        const room = parts.slice(parts.length > 2 ? 2 : 1).join(' ');
+        applyStructuredData({ floor, phase, room, category: cat });
+      } else {
+        alert(`Equipment with QR tag "${tag}" was not recognized.`);
+      }
     } finally {
       setQrScanning(false);
     }
@@ -245,10 +411,7 @@ function ReportContent() {
   const roomsOnSelectedFloor = getRoomsOnFloor();
   const oldBuildingRooms = roomsOnSelectedFloor.filter((r) => r.building_code === 'IT-OLD');
   const newBuildingRooms = roomsOnSelectedFloor.filter((r) => r.building_code === 'IT-NEW');
-
-  // Currently selected room metadata
   const currentRoomObj = roomsOnSelectedFloor.find((r) => (r.ID || r.id).toString() === selectedRoomId);
-  const availableAssetsInRoom = currentRoomObj?.assets || currentRoomObj?.Assets || [];
 
   // Priority Calculation with simple English feedback
   const calculateLivePriority = () => {
@@ -337,6 +500,16 @@ function ReportContent() {
     }
   };
 
+  const closeRatingDialog = () => {
+    setRatingTicket(null);
+    setFeedbackNotes('');
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('rateTicket');
+      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+    }
+  };
+
   const handleRatingSubmit = async () => {
     if (!ratingTicket) return;
     setSubmittingFeedback(true);
@@ -347,11 +520,10 @@ function ReportContent() {
         feedback: feedbackNotes,
       });
 
-      alert('Thank you! Your rating and feedback have been recorded.');
-      setRatingTicket(null);
-      setFeedbackNotes('');
+      closeRatingDialog();
       loadMyTickets();
       loadNotifications();
+      alert('Thank you! Your rating and feedback have been recorded.');
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to submit rating.');
     } finally {
@@ -359,7 +531,7 @@ function ReportContent() {
     }
   };
 
-  if (authLoading || (user && user.role === 'ADMIN')) {
+  if (authLoading || !user || user.role === 'ADMIN') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400 text-xs">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> {user?.role === 'ADMIN' ? 'Redirecting to Command Dashboard...' : 'Loading FixFlow Portal...'}
@@ -618,26 +790,6 @@ function ReportContent() {
                         </div>
                       )}
 
-                      {/* Optional: Link specific registered asset if available */}
-                      {availableAssetsInRoom.length > 0 && (
-                        <div className="pt-2">
-                          <label className="text-[11px] text-slate-400 font-medium block mb-1">
-                            Link registered asset tag (Optional):
-                          </label>
-                          <select
-                            value={selectedAssetId}
-                            onChange={(e) => setSelectedAssetId(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-md p-2 text-xs text-slate-200"
-                          >
-                            <option value="">-- Select Specific QR Asset (Optional) --</option>
-                            {availableAssetsInRoom.map((a: any) => (
-                              <option key={a.ID || a.id} value={a.ID || a.id}>
-                                {a.name} [{a.asset_tag || a.AssetTag}]
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
                     </div>
                   )}
 
@@ -880,7 +1032,7 @@ function ReportContent() {
       </main>
 
       {/* Star Rating Dialog */}
-      <Dialog open={!!ratingTicket} onOpenChange={() => setRatingTicket(null)}>
+      <Dialog open={!!ratingTicket} onOpenChange={(open) => { if (!open) closeRatingDialog(); }}>
         <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base text-white">

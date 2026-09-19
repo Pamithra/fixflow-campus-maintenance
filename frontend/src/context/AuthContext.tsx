@@ -30,6 +30,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    try {
+      sessionStorage.removeItem('fixflow_logging_out');
+    } catch (e) {}
+
     const savedToken = localStorage.getItem('fixflow_token');
     const savedUser = localStorage.getItem('fixflow_user');
 
@@ -41,19 +45,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = (newToken: string, newUser: User, redirectUrl?: string) => {
+    try {
+      sessionStorage.removeItem('fixflow_logging_out');
+    } catch (e) {}
     setToken(newToken);
     setUser(newUser);
     localStorage.setItem('fixflow_token', newToken);
     localStorage.setItem('fixflow_user', JSON.stringify(newUser));
 
-    // Admin always goes to Command Dashboard
-    if (newUser.role === 'ADMIN') {
-      router.push('/dashboard');
+    // If a specific redirect destination was requested (e.g. scanned QR equipment report), prioritize it
+    if (redirectUrl && !redirectUrl.startsWith('/login')) {
+      router.push(redirectUrl);
       return;
     }
 
-    if (redirectUrl && !redirectUrl.startsWith('/login')) {
-      router.push(redirectUrl);
+    // Admin always goes to Command Dashboard
+    if (newUser.role === 'ADMIN') {
+      router.push('/dashboard');
       return;
     }
 
@@ -66,11 +74,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    setToken(null);
-    setUser(null);
+    try {
+      sessionStorage.setItem('fixflow_logging_out', 'true');
+    } catch (e) {}
     localStorage.removeItem('fixflow_token');
     localStorage.removeItem('fixflow_user');
-    router.push('/login');
+    setToken(null);
+    setUser(null);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    } else {
+      router.push('/');
+    }
   };
 
   return (

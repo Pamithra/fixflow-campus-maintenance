@@ -24,9 +24,15 @@ api.interceptors.response.use(
       const status = error.response.status;
       if (status === 401) {
         if (typeof window !== 'undefined') {
+          // If the user explicitly logged out or is already on public pages, do not redirect to /login
+          if (sessionStorage.getItem('fixflow_logging_out') === 'true') {
+            return Promise.reject(error);
+          }
           localStorage.removeItem('fixflow_token');
           localStorage.removeItem('fixflow_user');
-          window.location.href = '/login';
+          if (window.location.pathname !== '/' && window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
         }
       } else if (status === 403) {
         console.warn('FixFlow Access Denied (403): Current user does not have permission for this resource.');

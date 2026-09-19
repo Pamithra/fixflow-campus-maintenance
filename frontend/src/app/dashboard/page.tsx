@@ -7,7 +7,9 @@ import api from '@/lib/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { 
   AlertOctagon, 
+  AlertTriangle,
   BarChart3, 
+  Camera,
   CheckCircle2, 
   Clock, 
   Eye, 
@@ -19,6 +21,7 @@ import {
   ListFilter, 
   Loader2, 
   MapPin, 
+  Phone,
   RefreshCw, 
   RotateCcw, 
   Shield, 
@@ -76,13 +79,16 @@ export default function AdminDashboardPage() {
     console.log('Real-Time Event Received:', event);
     // Show instant toast notification
     setSuccessToast(event.message);
-    // Automatically re-fetch data so the list updates live without refreshing!
-    loadData();
+    // Automatically re-fetch data silently in background without full-screen reload
+    loadData(true);
     setTimeout(() => setSuccessToast(''), 6000);
   });
 
   // Role Guard & Data Loader
   useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('fixflow_logging_out') === 'true') {
+      return;
+    }
     if (!authLoading) {
       if (!user) {
         router.push('/login?redirect=/dashboard');
@@ -93,20 +99,21 @@ export default function AdminDashboardPage() {
           router.push('/report');
         }
       } else {
-        loadData();
+        loadData(false);
       }
     }
   }, [user, authLoading, router]);
 
   useEffect(() => {
     if (user && user.role === 'ADMIN') {
-      const interval = setInterval(loadData, 30000);
+      // Periodic background silent sync every 30s (no UI flicker)
+      const interval = setInterval(() => loadData(true), 30000);
       return () => clearInterval(interval);
     }
   }, [user]);
 
-  const loadData = () => {
-    setLoading(true);
+  const loadData = (silent = false) => {
+    if (!silent) setLoading(true);
     Promise.all([
       api.get('/admin/incidents'),
       api.get('/admin/analytics'),
@@ -116,12 +123,16 @@ export default function AdminDashboardPage() {
         setAnalytics(analyticsRes.data || null);
       })
       .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!silent) setLoading(false);
+      });
   };
 
   const getRemainingSLA = (deadlineStr?: string) => {
     if (!deadlineStr) return null;
     const diff = new Date(deadlineStr).getTime() - Date.now();
+    const deadlineTime = new Date(deadlineStr).getTime();
+    if (isNaN(deadlineTime) || deadlineTime <= 0) return null;
     if (diff <= 0) return { text: 'SLA BREACHED', breached: true };
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -135,7 +146,7 @@ export default function AdminDashboardPage() {
     setTargetCategory('');
     setFilterFreeOnly(false);
 
-    api.get(`/admin/incidents/${ticket.ID}/recommendations`)
+    api.get(`/admin/incidents/${ticket.ID || ticket.id}/recommendations`)
       .then((res) => {
         setRecommendations(res.data.recommendations || []);
         setTargetCategory(res.data.target_category || '');
@@ -149,14 +160,19 @@ export default function AdminDashboardPage() {
     setAssigning(true);
 
     try {
+      const isReassign = isIncidentOverdue(selectedTicket) || selectedTicket.work_order || selectedTicket.WorkOrder;
       const res = await api.post('/admin/assign', {
-        request_id: selectedTicket.ID,
+        request_id: selectedTicket.ID || selectedTicket.id,
         technician_id: techId,
       });
 
-      setSuccessToast(res.data.message);
+      setSuccessToast(res.data.message || (isReassign ? 'Work order successfully reassigned! Task moved to Ongoing Tasks.' : 'Work order dispatched!'));
       setSelectedTicket(null);
-      loadData();
+      // Immediately switch to Ongoing Tasks tab to display the reassigned job
+      if (isReassign) {
+        setStatusFilter('ONGOING');
+      }
+      loadData(true);
       setTimeout(() => setSuccessToast(''), 5000);
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to dispatch technician');
@@ -171,7 +187,7 @@ export default function AdminDashboardPage() {
       const res = await api.post(`/admin/work-orders/${workOrderId}/verify`);
       setSuccessToast(res.data.message);
       setInspectTicket(null);
-      loadData();
+      loadData(true);
       setTimeout(() => setSuccessToast(''), 5000);
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to verify work order');
@@ -186,7 +202,7 @@ export default function AdminDashboardPage() {
       const res = await api.post(`/admin/work-orders/${workOrderId}/reopen`);
       setSuccessToast('Ticket has been reopened and returned to technician.');
       setInspectTicket(null);
-      loadData();
+      loadData(true);
       setTimeout(() => setSuccessToast(''), 5000);
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to reopen work order');
@@ -197,35 +213,50 @@ export default function AdminDashboardPage() {
 
   // Helper to check if an incident's work order has passed deadline
   const isIncidentOverdue = (i: any) => {
+    if (!i) return false;
     if (i.status === 'CLOSED') return false;
     const wo = i.work_order || i.WorkOrder;
     if (!wo || wo.status === 'COMPLETED' || wo.status === 'CLOSED') return false;
     const deadlineStr = wo.sla_deadline || wo.SLADeadline;
     if (!deadlineStr) return false;
-    return new Date(deadlineStr).getTime() <= Date.now();
+    const deadlineTime = new Date(deadlineStr).getTime();
+    if (isNaN(deadlineTime) || deadlineTime <= 0) return false;
+    return deadlineTime <= Date.now() || wo.sla_breached === true || wo.SLABreached === true;
+  };
+
+  // Helper to check if an incident is pending dispatch (unassigned)
+  const isIncidentPending = (i: any) => {
+    if (!i || isIncidentOverdue(i)) return false;
+    if (i.status === 'CLOSED') return false;
+    const wo = i.work_order || i.WorkOrder;
+    if (!wo) return true;
+    if (wo.status === 'COMPLETED' || wo.status === 'CLOSED') return false;
+    const techId = wo.technician_id || wo.TechnicianID;
+    if (!techId) return true;
+    return wo.status === 'PENDING' || wo.status === 'REPORTED';
+  };
+
+  // Helper to check if an incident is ongoing (assigned or in-progress, not overdue)
+  const isIncidentOngoing = (i: any) => {
+    if (!i || isIncidentOverdue(i)) return false;
+    if (i.status === 'CLOSED') return false;
+    const wo = i.work_order || i.WorkOrder;
+    if (!wo) return false;
+    if (wo.status === 'COMPLETED' || wo.status === 'CLOSED') return false;
+    const techId = wo.technician_id || wo.TechnicianID;
+    if (!techId) return false;
+    return wo.status === 'ASSIGNED' || wo.status === 'IN_PROGRESS';
   };
 
   // Filter counts
   const allCount = incidents.length;
   const overdueCount = incidents.filter((i) => isIncidentOverdue(i)).length;
-
-  const pendingCount = incidents.filter((i) => {
-    if (isIncidentOverdue(i)) return false;
-    const wo = i.work_order || i.WorkOrder;
-    return !wo || i.status === 'REPORTED' || wo.status === 'REPORTED';
-  }).length;
-
-  const ongoingCount = incidents.filter((i) => {
-    if (isIncidentOverdue(i)) return false;
-    const wo = i.work_order || i.WorkOrder;
-    return wo && (wo.status === 'ASSIGNED' || wo.status === 'IN_PROGRESS');
-  }).length;
-
+  const pendingCount = incidents.filter((i) => isIncidentPending(i)).length;
+  const ongoingCount = incidents.filter((i) => isIncidentOngoing(i)).length;
   const completedCount = incidents.filter((i) => {
     const wo = i.work_order || i.WorkOrder;
     return wo && wo.status === 'COMPLETED';
   }).length;
-
   const closedCount = incidents.filter((i) => {
     const wo = i.work_order || i.WorkOrder;
     return i.status === 'CLOSED' || wo?.status === 'CLOSED';
@@ -233,17 +264,14 @@ export default function AdminDashboardPage() {
 
   const filteredIncidents = incidents.filter((i) => {
     const wo = i.work_order || i.WorkOrder;
-    const overdue = isIncidentOverdue(i);
 
     // 1. Status Filter
     if (statusFilter === 'OVERDUE') {
-      if (!overdue) return false;
+      if (!isIncidentOverdue(i)) return false;
     } else if (statusFilter === 'PENDING') {
-      if (overdue) return false;
-      if (wo && wo.status !== 'REPORTED') return false;
+      if (!isIncidentPending(i)) return false;
     } else if (statusFilter === 'ONGOING') {
-      if (overdue) return false;
-      if (!wo || (wo.status !== 'ASSIGNED' && wo.status !== 'IN_PROGRESS')) return false;
+      if (!isIncidentOngoing(i)) return false;
     } else if (statusFilter === 'COMPLETED') {
       if (!wo || wo.status !== 'COMPLETED') return false;
     } else if (statusFilter === 'CLOSED') {
@@ -295,7 +323,7 @@ export default function AdminDashboardPage() {
               <p className="text-xs text-slate-400">Triage campus incidents, review AI recommendations, and dispatch technicians</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={loadData} className="border-slate-800 text-slate-300 hover:text-white text-xs">
+          <Button variant="outline" size="sm" onClick={() => loadData(false)} className="border-slate-800 text-slate-300 hover:text-white text-xs">
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh Incidents
           </Button>
         </div>
@@ -321,9 +349,12 @@ export default function AdminDashboardPage() {
           <Card className="bg-slate-900/60 border-slate-800">
             <CardHeader className="p-4 pb-2">
               <CardDescription className="text-xs text-slate-400">SLA Compliance Rate</CardDescription>
-              <CardTitle className="text-2xl font-extrabold text-emerald-400 flex items-center gap-1.5">
-                {analytics?.sla_compliance_rate || 100}%
-                <TrendingUp className="w-4 h-4 text-emerald-400" />
+              <CardTitle className={`text-2xl font-extrabold flex items-center gap-1.5 ${
+                (analytics?.sla_compliance_rate ?? 100) >= 90 ? 'text-emerald-400' :
+                (analytics?.sla_compliance_rate ?? 100) >= 75 ? 'text-amber-400' : 'text-rose-400'
+              }`}>
+                {analytics?.sla_compliance_rate ?? 100}%
+                <TrendingUp className="w-4 h-4" />
               </CardTitle>
               <p className="text-[10px] text-slate-500 mt-1">% of repairs finished within target deadline</p>
             </CardHeader>
@@ -514,129 +545,220 @@ export default function AdminDashboardPage() {
                       return (
                         <div
                           key={t.ID}
-                          className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+                          className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition space-y-3"
                         >
-                          <div className="space-y-2 max-w-2xl">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-mono text-xs font-bold text-indigo-400">{t.ticket_number}</span>
-                              <Badge
-                                className={`text-[10px] ${
-                                  t.calculated_priority === 'CRITICAL' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' :
-                                  t.calculated_priority === 'HIGH' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                                  'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                                }`}
-                              >
-                                {t.calculated_priority} Priority
-                              </Badge>
-
-                              {isIncidentOverdue(t) ? (
-                                <Badge className="text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse font-bold">
-                                  🚨 PASSED DEADLINE (OVERDUE)
-                                </Badge>
-                              ) : (
-                                <Badge className={`text-[10px] ${
-                                  isClosed ? 'bg-slate-800 text-slate-300 border border-slate-700' :
-                                  isCompleted ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse' :
-                                  wo?.status === 'IN_PROGRESS' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse' :
-                                  wo?.status === 'ASSIGNED' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                                  'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                                }`}>
-                                  {isClosed ? 'CLOSED' : isCompleted ? 'COMPLETED (PENDING VERIFICATION)' : (wo?.status || 'PENDING DISPATCH')}
-                                </Badge>
-                              )}
-
-                              {(t.custom_equipment_name || t.equipment_category || t.Asset?.name) && (
-                                <Badge variant="outline" className="text-[10px] border-indigo-500/30 text-indigo-300">
-                                  Equipment: {t.custom_equipment_name || t.equipment_category || t.Asset?.name}
-                                </Badge>
-                              )}
-                            </div>
-
-                            {/* Exact Maintenance Location Path */}
-                            <div className="p-2.5 rounded-lg bg-indigo-950/20 border border-indigo-500/20 text-xs space-y-1">
-                              <div className="flex items-center gap-1.5 text-indigo-400 font-semibold text-[10px]">
-                                <MapPin className="w-3.5 h-3.5 shrink-0" />
-                                <span>Exact Maintenance Location Path:</span>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                                <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-medium">
-                                  IT Faculty
-                                </span>
-                                <span className="text-slate-600 font-bold">➔</span>
-                                <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-indigo-300 font-medium">
-                                  {floor ? (floor.floor_number === 0 ? 'Floor 0 (Ground Floor)' : `Floor ${floor.floor_number}`) : 'Ground Floor'}
-                                </span>
-                                <span className="text-slate-600 font-bold">➔</span>
-                                <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-amber-300 font-medium">
-                                  {getBuildingDisplayName(building?.name, room?.room_number)}
-                                </span>
-                                <span className="text-slate-600 font-bold">➔</span>
-                                <span className="px-2.5 py-0.5 rounded bg-indigo-600/20 border border-indigo-500/40 text-white font-bold">
-                                  Room {room?.room_number || 'General'} {room?.room_type ? `(${room.room_type})` : ''}
-                                </span>
-                              </div>
-                            </div>
-
-                            <p className="text-sm text-slate-200">{t.description}</p>
-
-                            <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-3 pt-1">
-                              <span>Reported by: <strong>{t.Reporter?.full_name || t.reporter?.full_name}</strong></span>
-                              {tech?.full_name && (
-                                <>
-                                  <span>•</span>
-                                  <span>Assigned Tech: <strong className="text-indigo-300">{tech.full_name}</strong> ({wo?.status})</span>
-                                </>
-                              )}
-                              <span>•</span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" /> {new Date(t.CreatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-end sm:items-center gap-2 shrink-0">
-                            {t.status === 'REPORTED' ? (
-                              <Button
-                                onClick={() => openDispatch(t)}
-                                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 h-auto flex items-center gap-1.5 shadow-lg shadow-indigo-600/20"
-                              >
-                                <Zap className="w-3.5 h-3.5" /> Dispatch Tech
-                              </Button>
-                            ) : isCompleted ? (
-                              <Button
-                                onClick={() => setInspectTicket(t)}
-                                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 h-auto flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 animate-pulse"
-                              >
-                                <Eye className="w-3.5 h-3.5" /> Inspect & Verify
-                              </Button>
-                            ) : isClosed ? (
-                              <Badge className="bg-slate-800 text-slate-300 border border-slate-700 text-xs px-3 py-1 flex items-center gap-1">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Resolved & Verified
-                              </Badge>
-                            ) : (
-                              <div className="flex flex-col items-end gap-1.5">
-                                <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs px-2.5 py-1 flex items-center gap-1.5">
-                                  <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
-                                  {tech?.full_name || 'Kasun Perera'} ({wo?.status})
+                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div className="space-y-2 max-w-2xl">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono text-xs font-bold text-indigo-400">{t.ticket_number}</span>
+                                <Badge
+                                  className={`text-[10px] ${
+                                    t.calculated_priority === 'CRITICAL' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' :
+                                    t.calculated_priority === 'HIGH' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                                    'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                                  }`}
+                                >
+                                  {t.calculated_priority} Priority
                                 </Badge>
 
-                                {sla && (
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[11px] font-mono px-2 py-0.5 flex items-center gap-1 ${
-                                      sla.breached 
-                                        ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse'
-                                        : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                                    }`}
-                                  >
-                                    <Hourglass className="w-3 h-3" />
-                                    {sla.breached ? '🔴 SLA OVERDUE' : `⚡ SLA: ${sla.text}`}
+                                {isIncidentOverdue(t) ? (
+                                  <Badge className="text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse font-bold">
+                                    🚨 PASSED DEADLINE (OVERDUE)
+                                  </Badge>
+                                ) : (
+                                  <Badge className={`text-[10px] ${
+                                    isClosed ? 'bg-slate-800 text-slate-300 border border-slate-700' :
+                                    isCompleted ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse' :
+                                    wo?.status === 'IN_PROGRESS' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse' :
+                                    wo?.status === 'ASSIGNED' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                    'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                                  }`}>
+                                    {isClosed ? 'CLOSED' : isCompleted ? 'COMPLETED (PENDING VERIFICATION)' : (wo?.status === 'IN_PROGRESS' ? 'REPAIR UNDERWAY' : wo?.status === 'ASSIGNED' ? 'READY TO START (ASSIGNED)' : 'PENDING DISPATCH')}
+                                  </Badge>
+                                )}
+
+                                {(t.custom_equipment_name || t.equipment_category || t.Asset?.name) && (
+                                  <Badge variant="outline" className="text-[10px] border-indigo-500/30 text-indigo-300">
+                                    Equipment: {t.custom_equipment_name || t.equipment_category || t.Asset?.name}
                                   </Badge>
                                 )}
                               </div>
-                            )}
+
+                              {/* Exact Maintenance Location Path */}
+                              <div className="p-2.5 rounded-lg bg-indigo-950/20 border border-indigo-500/20 text-xs space-y-1">
+                                <div className="flex items-center gap-1.5 text-indigo-400 font-semibold text-[10px]">
+                                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                                  <span>Exact Maintenance Location Path:</span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-medium">
+                                    IT Faculty
+                                  </span>
+                                  <span className="text-slate-600 font-bold">➔</span>
+                                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-indigo-300 font-medium">
+                                    {floor ? (floor.floor_number === 0 ? 'Floor 0 (Ground Floor)' : `Floor ${floor.floor_number}`) : 'Ground Floor'}
+                                  </span>
+                                  <span className="text-slate-600 font-bold">➔</span>
+                                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-amber-300 font-medium">
+                                    {getBuildingDisplayName(building?.name, room?.room_number)}
+                                  </span>
+                                  <span className="text-slate-600 font-bold">➔</span>
+                                  <span className="px-2.5 py-0.5 rounded bg-indigo-600/20 border border-indigo-500/40 text-white font-bold">
+                                    Room {room?.room_number || 'General'} {room?.room_type ? `(${room.room_type})` : ''}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <p className="text-sm text-slate-200">{t.description}</p>
+
+                              <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-3 pt-1">
+                                <span>Reported by: <strong className="text-slate-300">{t.Reporter?.full_name || t.reporter?.full_name}</strong></span>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" /> {new Date(t.CreatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons & SLA */}
+                            <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-end sm:items-center gap-2 shrink-0">
+                              {sla && !isCompleted && !isClosed && (
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[11px] font-mono px-2 py-0.5 flex items-center gap-1 ${
+                                    sla.breached 
+                                      ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse'
+                                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                  }`}
+                                >
+                                  <Hourglass className="w-3 h-3" />
+                                  {sla.breached ? '🔴 SLA OVERDUE' : `⚡ SLA: ${sla.text}`}
+                                </Badge>
+                              )}
+
+                              {t.status === 'REPORTED' || (!wo?.technician_id && !wo?.TechnicianID) ? (
+                                <Button
+                                  onClick={() => openDispatch(t)}
+                                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 h-auto flex items-center gap-1.5 shadow-lg shadow-indigo-600/20"
+                                >
+                                  <Zap className="w-3.5 h-3.5" /> Dispatch Tech
+                                </Button>
+                              ) : isCompleted ? (
+                                <Button
+                                  onClick={() => setInspectTicket(t)}
+                                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 h-auto flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 animate-pulse"
+                                >
+                                  <Eye className="w-3.5 h-3.5" /> Inspect & Verify
+                                </Button>
+                              ) : isClosed ? (
+                                <Badge className="bg-slate-800 text-slate-300 border border-slate-700 text-xs px-3 py-1 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Resolved & Verified
+                                </Badge>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs px-2.5 py-1 flex items-center gap-1.5">
+                                    <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
+                                    {tech?.full_name || 'Assigned'}
+                                  </Badge>
+
+                                  {isIncidentOverdue(t) && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => openDispatch(t)}
+                                      className="bg-rose-600 hover:bg-rose-500 text-white text-xs px-2.5 py-1 h-7 flex items-center gap-1 shadow-md shadow-rose-600/20 font-semibold"
+                                    >
+                                      <RefreshCw className="w-3 h-3" /> Reassign Technician
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
+
+                          {/* Assigned Technician Detailed Card */}
+                          {tech && !isClosed && (
+                            <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <div className="flex items-center gap-2">
+                                <UserCheck className="w-4 h-4 text-indigo-400" />
+                                <span className="text-slate-300 font-medium">
+                                  Assigned Technician: <strong className="text-white">{tech.full_name}</strong>
+                                </span>
+                                {tech.skill_category && (
+                                  <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] py-0 px-1.5">
+                                    🎯 {tech.skill_category} Specialist
+                                  </Badge>
+                                )}
+                              </div>
+                              {tech.phone_number && (
+                                <div className="flex items-center gap-1 text-slate-400 text-[11px]">
+                                  <Phone className="w-3 h-3 text-emerald-400" />
+                                  <span>Phone: <a href={`tel:${tech.phone_number}`} className="text-indigo-300 hover:underline">{tech.phone_number}</a></span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Completed Work Evidence & Admin Sign-off Actions */}
+                          {isCompleted && (
+                            <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 space-y-2.5">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Repair Finished by Technician • Waiting for Administrator Sign-off
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleVerify(wo.ID || wo.id)}
+                                    disabled={verifying}
+                                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-7 px-3 font-semibold shadow-md shadow-emerald-600/20"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approve & Close
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleReopen(wo.ID || wo.id)}
+                                    disabled={verifying}
+                                    className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs h-7 px-3"
+                                  >
+                                    <RefreshCw className="w-3.5 h-3.5 mr-1" /> Request Rework
+                                  </Button>
+                                </div>
+                              </div>
+                              {wo?.technician_notes && (
+                                <p className="text-xs text-slate-300 bg-slate-950/60 p-2 rounded border border-slate-800">
+                                  <span className="text-slate-400 font-medium">Technician Repair Notes:</span> "{wo.technician_notes}"
+                                </p>
+                              )}
+                              {wo?.after_image_url && (
+                                <div className="pt-1">
+                                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Photo of Repaired Equipment:</span>
+                                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-700 mt-1 cursor-pointer" onClick={() => window.open(wo.after_image_url, '_blank')}>
+                                    <img src={wo.after_image_url} alt="Repaired Evidence" className="w-full h-full object-cover hover:scale-105 transition" />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Closed Summary Banner */}
+                          {isClosed && (wo?.technician_notes || wo?.after_image_url) && (
+                            <div className="p-3 rounded-lg bg-slate-800/40 border border-slate-700/50 space-y-2">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Work Order Verified & Closed by Administrator
+                              </div>
+                              {wo.technician_notes && (
+                                <p className="text-xs text-slate-400">
+                                  <span className="text-slate-400 font-medium">Final Repair Notes:</span> "{wo.technician_notes}"
+                                </p>
+                              )}
+                              {wo.after_image_url && (
+                                <div className="w-16 h-16 rounded-lg overflow-hidden border border-slate-700 mt-1 cursor-pointer" onClick={() => window.open(wo.after_image_url, '_blank')}>
+                                  <img src={wo.after_image_url} alt="Repaired Evidence" className="w-full h-full object-cover hover:scale-105 transition" />
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -709,38 +831,6 @@ export default function AdminDashboardPage() {
                   ))}
                 </CardContent>
               </Card>
-
-              {/* Recurring Issue Diagnostic */}
-              <Card className="bg-slate-900/80 border-slate-800 md:col-span-2">
-                <CardHeader>
-                  <CardTitle className="text-white text-base flex items-center gap-2">
-                    <Flame className="w-4 h-4 text-rose-400" /> Asset Health & Recurring Failure Detection
-                  </CardTitle>
-                  <CardDescription className="text-slate-400 text-xs">
-                    Identifies high-maintenance physical equipment needing preventive replacement review
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {analytics?.recurring_issues && analytics.recurring_issues.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {analytics.recurring_issues.map((item: any, i: number) => (
-                        <div key={i} className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 space-y-1">
-                          <div className="flex justify-between items-center">
-                            <span className="font-mono text-xs font-bold text-indigo-400">{item.asset_tag}</span>
-                            <Badge className="bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px]">
-                              {item.count} Breakdown{item.count > 1 ? 's' : ''}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-slate-200 font-medium">{item.name}</p>
-                          <p className="text-[10px] text-slate-500">Status: Operational (Recent Repair Verified)</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 text-slate-500 text-xs">No recurring failure alerts. All campus assets are healthy.</div>
-                  )}
-                </CardContent>
-              </Card>
             </div>
           </TabsContent>
         </Tabs>
@@ -751,10 +841,13 @@ export default function AdminDashboardPage() {
         <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <Sparkles className="w-5 h-5 text-indigo-400" /> Technician Dispatch Engine
+              <Sparkles className="w-5 h-5 text-indigo-400" /> 
+              {selectedTicket?.work_order || isIncidentOverdue(selectedTicket) ? 'Reassign Maintenance Technician' : 'Technician Dispatch Engine'}
             </DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Assigning {selectedTicket?.ticket_number}. Technicians are evaluated by current availability (0 active tasks) and trade specialty match.
+              {selectedTicket?.work_order || isIncidentOverdue(selectedTicket)
+                ? `Reassigning ${selectedTicket?.ticket_number}. Select an available technician to take over and expedite this repair.`
+                : `Assigning ${selectedTicket?.ticket_number}. Technicians are evaluated by current availability (0 active tasks) and trade specialty match.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -842,13 +935,6 @@ export default function AdminDashboardPage() {
                                 ⏳ Busy ({rec.active_workload} active jobs)
                               </Badge>
                             )}
-
-                            {/* Specialty Match Pill */}
-                            {rec.skill_match && (
-                              <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px]">
-                                🎯 {rec.technician.skill_category} Specialist
-                              </Badge>
-                            )}
                           </div>
 
                           <div className="flex items-center gap-3 text-[11px] text-slate-400">
@@ -877,7 +963,7 @@ export default function AdminDashboardPage() {
                                 : 'bg-indigo-600 hover:bg-indigo-500 text-white'
                             }`}
                           >
-                            Assign Task
+                            {selectedTicket?.work_order || isIncidentOverdue(selectedTicket) ? 'Reassign Task' : 'Assign Task'}
                           </Button>
                         </div>
                       </div>

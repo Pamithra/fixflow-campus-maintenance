@@ -20,11 +20,15 @@ import {
   Filter,
   ListFilter,
   Shield,
-  Info
+  Info,
+  Zap,
+  UserCheck,
+  Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Navbar from '@/components/Navbar';
 
 const getBuildingDisplayName = (buildingName?: string, roomNumber?: string) => {
@@ -45,8 +49,53 @@ export default function TechnicianTasksPage() {
   const [loading, setLoading] = useState(true);
 
   // Filter States
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OVERDUE' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CLOSED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OVERDUE' | 'PENDING' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CLOSED'>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
+
+  // Dispatch / Reassign Modal State (for Admin)
+  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
+  const [targetCategory, setTargetCategory] = useState('');
+  const [filterFreeOnly, setFilterFreeOnly] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+
+  const openDispatch = (ticket: any) => {
+    setSelectedTicket(ticket);
+    setLoadingRecs(true);
+    setRecommendations([]);
+    setTargetCategory('');
+    setFilterFreeOnly(false);
+
+    api.get(`/admin/incidents/${ticket.ID || ticket.id}/recommendations`)
+      .then((res) => {
+        setRecommendations(res.data.recommendations || []);
+        setTargetCategory(res.data.target_category || '');
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoadingRecs(false));
+  };
+
+  const handleAssign = async (techId: number) => {
+    if (!selectedTicket) return;
+    setAssigning(true);
+
+    try {
+      const res = await api.post('/admin/assign', {
+        request_id: selectedTicket.ID || selectedTicket.id,
+        technician_id: techId,
+      });
+
+      setSuccessToast(res.data.message);
+      setSelectedTicket(null);
+      loadTasks();
+      setTimeout(() => setSuccessToast(''), 5000);
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to assign technician');
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   // Completion Form State per task
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
@@ -58,10 +107,15 @@ export default function TechnicianTasksPage() {
 
   // Role Guard & Data Loader
   useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('fixflow_logging_out') === 'true') {
+      return;
+    }
     if (!authLoading) {
       if (!user) {
         router.push('/login?redirect=/tasks');
-      } else if (user.role !== 'TECHNICIAN' && user.role !== 'ADMIN') {
+      } else if (user.role === 'ADMIN') {
+        router.push('/dashboard');
+      } else if (user.role !== 'TECHNICIAN') {
         router.push('/report');
       } else {
         loadTasks();
@@ -142,6 +196,7 @@ export default function TechnicianTasksPage() {
 
   // Helper to check if a task has passed deadline
   const isTaskOverdue = (wo: any) => {
+    if (!wo) return false;
     if (wo.status === 'COMPLETED' || wo.status === 'CLOSED') return false;
     const deadlineStr = wo.sla_deadline || wo.SLADeadline;
     if (!deadlineStr) return false;
@@ -151,6 +206,7 @@ export default function TechnicianTasksPage() {
   // Filter Counts
   const allCount = tasks.length;
   const overdueCount = tasks.filter((t) => isTaskOverdue(t)).length;
+  const pendingCount = tasks.filter((t) => t.status === 'PENDING').length;
   const assignedCount = tasks.filter((t) => t.status === 'ASSIGNED' && !isTaskOverdue(t)).length;
   const inProgressCount = tasks.filter((t) => t.status === 'IN_PROGRESS' && !isTaskOverdue(t)).length;
   const completedCount = tasks.filter((t) => t.status === 'COMPLETED').length;
@@ -165,6 +221,8 @@ export default function TechnicianTasksPage() {
     // 1. Status Filter
     if (statusFilter === 'OVERDUE') {
       if (!overdue) return false;
+    } else if (statusFilter === 'PENDING') {
+      if (t.status !== 'PENDING') return false;
     } else if (statusFilter === 'ASSIGNED') {
       if (t.status !== 'ASSIGNED' || overdue) return false;
     } else if (statusFilter === 'IN_PROGRESS') {
@@ -282,6 +340,25 @@ export default function TechnicianTasksPage() {
                 {overdueCount}
               </span>
             </button>
+
+            {/* Pending Dispatch */}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setStatusFilter('PENDING')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  statusFilter === 'PENDING'
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'bg-slate-900 text-slate-400 hover:text-purple-300 border border-slate-800'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                Pending Dispatch
+                <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-purple-500/20 text-purple-300 font-mono">
+                  {pendingCount}
+                </span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -458,13 +535,15 @@ export default function TechnicianTasksPage() {
                           ) : (
                             <Badge
                               className={`text-[10px] ${
+                                wo.status === 'PENDING' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30 animate-pulse' :
                                 wo.status === 'ASSIGNED' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
                                 wo.status === 'IN_PROGRESS' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse' :
                                 wo.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse' :
                                 'bg-slate-800 text-slate-300 border border-slate-700'
                               }`}
                             >
-                              {wo.status === 'ASSIGNED' ? 'Ready to Start (Assigned)' :
+                              {wo.status === 'PENDING' ? 'Pending Dispatch (Unassigned)' :
+                               wo.status === 'ASSIGNED' ? 'Ready to Start (Assigned)' :
                                wo.status === 'IN_PROGRESS' ? 'Repair Underway (In Progress)' :
                                wo.status === 'COMPLETED' ? 'Completed (Awaiting Sign-off)' :
                                'Resolved & Closed'}
@@ -541,6 +620,43 @@ export default function TechnicianTasksPage() {
 
                       {/* Workflow State Actions */}
                       <div className="border-t border-slate-900 pt-3">
+                        {wo.status === 'PENDING' && (
+                          <div className="flex items-center justify-between gap-3">
+                            {isAdmin ? (
+                              <Button
+                                onClick={() => openDispatch(req)}
+                                className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-4 py-2 flex items-center gap-1.5 shadow-lg shadow-purple-600/20"
+                              >
+                                <Zap className="w-3.5 h-3.5" /> Dispatch Technician
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-purple-300 font-medium flex items-center gap-1.5">
+                                <Hourglass className="w-3.5 h-3.5" /> Awaiting Administrator Dispatch to Technician
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {isTaskOverdue(wo) && isAdmin && (
+                          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/25 mb-3">
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                                <RefreshCw className="w-3.5 h-3.5" /> Passed SLA Resolution Deadline
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                This task exceeded its required completion time. Reassign to another technician to expedite resolution.
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => openDispatch(req)}
+                              className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-3 py-1.5 flex items-center gap-1.5 shadow-md shadow-rose-600/20 shrink-0"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" /> Reassign Technician
+                            </Button>
+                          </div>
+                        )}
+
                         {wo.status === 'ASSIGNED' && (
                           <Button
                             onClick={() => handleStartWork(wo.ID)}
@@ -658,6 +774,138 @@ export default function TechnicianTasksPage() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Dispatch / Reassign Modal for Admin */}
+      <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Sparkles className="w-5 h-5 text-indigo-400" /> 
+              {selectedTicket?.work_order || selectedTicket?.status !== 'REPORTED' ? 'Reassign Maintenance Technician' : 'Technician Dispatch Engine'}
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              {selectedTicket?.work_order || selectedTicket?.status !== 'REPORTED'
+                ? `Reassigning ${selectedTicket?.ticket_number}. Select an available technician to take over and expedite this repair.`
+                : `Assigning ${selectedTicket?.ticket_number}. Technicians are evaluated by current availability (0 active tasks) and trade specialty match.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Ticket Context Banner */}
+          {selectedTicket && (
+            <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs space-y-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-slate-300">
+                  Target Equipment: <strong className="text-indigo-300">{selectedTicket.custom_equipment_name || selectedTicket.equipment_category || selectedTicket.Asset?.name || 'General Equipment'}</strong>
+                </span>
+                <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px]">
+                  Required Specialty: {targetCategory || 'General'}
+                </Badge>
+              </div>
+              <p className="text-slate-400 text-[11px] truncate">"{selectedTicket.description}"</p>
+            </div>
+          )}
+
+          {/* Availability Filter Buttons */}
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <span className="text-xs font-semibold text-slate-300">Technician Availability:</span>
+            <div className="flex items-center gap-1.5 p-0.5 bg-slate-950 rounded-lg border border-slate-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setFilterFreeOnly(false)}
+                className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
+                  !filterFreeOnly 
+                    ? 'bg-indigo-600 text-white' 
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                All ({recommendations.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterFreeOnly(true)}
+                className={`px-2.5 py-1 rounded text-[11px] font-medium transition flex items-center gap-1 ${
+                  filterFreeOnly 
+                    ? 'bg-emerald-600 text-white' 
+                    : 'text-emerald-400 hover:text-white'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Free Only ({recommendations.filter(r => r.is_available).length})
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-1">
+            {loadingRecs ? (
+              <div className="py-8 text-center text-slate-500 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-400" /> Finding available qualified technicians...
+              </div>
+            ) : recommendations.length === 0 ? (
+              <div className="py-8 text-center text-slate-500 text-xs">
+                No active technicians found in this trade.
+              </div>
+            ) : (
+              <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1">
+                {recommendations
+                  .filter((rec) => !filterFreeOnly || rec.is_available)
+                  .map((rec) => {
+                    const techId = rec.technician.ID || rec.technician.id;
+                    const isFree = rec.is_available;
+                    return (
+                      <div
+                        key={techId}
+                        className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 hover:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm text-white">{rec.technician.full_name}</span>
+                            {isFree ? (
+                              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] flex items-center gap-1 font-semibold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Free (0 Active Tasks)
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-300/80 bg-amber-500/10">
+                                ⏳ Busy ({rec.active_workload} active jobs)
+                              </Badge>
+                            )}
+                            {rec.skill_match && (
+                              <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px]">
+                                🎯 {rec.technician.skill_category} Specialist
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                            <span>Trade: <strong className="text-slate-300">{rec.technician.skill_category || 'General'}</strong></span>
+                            {rec.technician.phone_number && (
+                              <>
+                                <span>•</span>
+                                <span>Phone: <strong className="text-slate-300">{rec.technician.phone_number}</strong></span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <Button
+                            size="sm"
+                            disabled={assigning}
+                            onClick={() => handleAssign(techId)}
+                            className={`text-xs h-8 font-medium shadow-md ${
+                              isFree
+                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                            }`}
+                          >
+                            {selectedTicket?.work_order || selectedTicket?.status !== 'REPORTED' ? 'Reassign Task' : 'Assign Task'}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
