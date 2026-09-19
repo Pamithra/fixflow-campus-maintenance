@@ -237,9 +237,13 @@ function LoginForm() {
 
       {/* Redirect Notification */}
       {redirectUrl && (
-        <div className="p-3 text-xs bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 rounded-lg flex items-center gap-2">
+        <div className="p-3 text-xs bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 rounded-lg flex items-center gap-2 animate-in fade-in">
           <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
-          <span>Please sign in or create an account to continue.</span>
+          <span>
+            {redirectUrl.includes('tag=') || redirectUrl.includes('category=') || redirectUrl.includes('floor=')
+              ? '📲 Equipment detected via QR! Please sign in or create an account to submit your maintenance report.'
+              : 'Please sign in or create an account to continue.'}
+          </span>
         </div>
       )}
 

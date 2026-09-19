@@ -36,11 +36,15 @@ export default function HomePage() {
   const [qrTagInput, setQrTagInput] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [scannedSuccess, setScannedSuccess] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const scanLockRef = useRef<boolean>(false);
 
   const startCamera = async () => {
     try {
       setCameraError('');
+      setScannedSuccess(null);
+      scanLockRef.current = false;
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' }
       });
@@ -62,6 +66,8 @@ export default function HomePage() {
       videoRef.current.srcObject = null;
     }
     setCameraActive(false);
+    setScannedSuccess(null);
+    scanLockRef.current = false;
   };
 
   // QR Detection with native BarcodeDetector API if supported in browser
@@ -71,21 +77,27 @@ export default function HomePage() {
       try {
         const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
         interval = setInterval(async () => {
+          if (scanLockRef.current) return;
           if (videoRef.current && videoRef.current.readyState >= 2) {
             try {
               const barcodes = await detector.detect(videoRef.current);
-              if (barcodes && barcodes.length > 0) {
-                const rawVal = barcodes[0].rawValue;
-                stopCamera();
-                let tag = rawVal;
-                if (rawVal.includes('tag=')) {
-                  tag = rawVal.split('tag=')[1].split('&')[0];
+              if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                const rawVal = barcodes[0].rawValue.trim();
+                if (rawVal.length > 3) {
+                  scanLockRef.current = true;
+                  let tag = rawVal;
+                  if (rawVal.includes('tag=')) {
+                    tag = rawVal.split('tag=')[1].split('&')[0];
+                  }
+                  setScannedSuccess(tag);
+                  setTimeout(() => {
+                    handleProceedWithQR(tag);
+                  }, 1200);
                 }
-                handleProceedWithQR(tag);
               }
             } catch (e) {}
           }
-        }, 500);
+        }, 350);
       } catch (e) {}
     }
     return () => {
@@ -95,9 +107,15 @@ export default function HomePage() {
 
   const handleProceedWithQR = (tagToUse: string) => {
     const cleanTag = tagToUse.trim();
-    if (!cleanTag) return;
+    if (!cleanTag) {
+      scanLockRef.current = false;
+      setScannedSuccess(null);
+      return;
+    }
     stopCamera();
     setShowQRScanner(false);
+    setScannedSuccess(null);
+    scanLockRef.current = false;
 
     let targetReportPath = `/report?tag=${encodeURIComponent(cleanTag)}`;
     if (cleanTag.includes('/report?')) {
@@ -471,6 +489,22 @@ export default function HomePage() {
                     <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-indigo-400 -mb-1 -ml-1"></div>
                     <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-indigo-400 -mb-1 -mr-1"></div>
                   </div>
+                </div>
+              )}
+
+              {/* Scanned Success Confirmation Overlay */}
+              {scannedSuccess && (
+                <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-30 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="w-14 h-14 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center mb-3">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-400 animate-bounce" />
+                  </div>
+                  <p className="text-sm font-bold text-white">QR Code Scanned!</p>
+                  <p className="text-xs text-emerald-300 mt-1 max-w-[260px] truncate bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30 font-mono">
+                    {scannedSuccess}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-3 flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" /> Opening equipment report...
+                  </p>
                 </div>
               )}
 
