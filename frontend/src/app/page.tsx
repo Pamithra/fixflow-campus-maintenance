@@ -26,10 +26,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/context/AuthContext';
+import api from '@/lib/api';
 
 export default function HomePage() {
   const { user, logout } = useAuth();
   const router = useRouter();
+
+  // Pre-warm cloud backend in background on initial landing
+  useEffect(() => {
+    api.get('/health').catch(() => {});
+  }, []);
 
   // QR Scanner Modal State
   const [showQRScanner, setShowQRScanner] = useState(false);

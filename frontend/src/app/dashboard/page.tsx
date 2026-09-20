@@ -823,10 +823,17 @@ export default function AdminDashboardPage() {
                         <p className="text-xs text-slate-400">Completed Repairs: <strong className="text-slate-200">{tech.completed}</strong></p>
                       </div>
 
-                      <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md">
-                        <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                        <span className="text-xs font-bold text-amber-300">{tech.avg_rating > 0 ? tech.avg_rating.toFixed(1) : '5.0'}</span>
-                      </div>
+                      {tech.completed > 0 && tech.avg_rating > 0 ? (
+                        <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md">
+                          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                          <span className="text-xs font-bold text-amber-300">{tech.avg_rating.toFixed(1)}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 bg-slate-800/40 border border-slate-800 px-2.5 py-1 rounded-md text-slate-500">
+                          <Star className="w-3.5 h-3.5 text-slate-600" />
+                          <span className="text-[11px] font-medium text-slate-400">No reviews</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </CardContent>

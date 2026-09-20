@@ -84,6 +84,9 @@ function LoginForm() {
     } catch (e) {}
     setLoginEmail('');
     setLoginPassword('');
+
+    // Pre-warm backend in background so cold-start delay happens before clicking submit
+    api.get('/health').catch(() => {});
   }, []);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
