@@ -297,19 +297,19 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 space-y-6">
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 space-y-6 overflow-x-hidden w-full max-w-full">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 space-y-6">
         
         {/* Sub-Header Bar */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800 backdrop-blur">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-3.5 sm:p-4 rounded-xl border border-slate-800 backdrop-blur">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+            <div className="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shrink-0">
               <Shield className="w-5 h-5" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-white flex items-center gap-2">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-white flex flex-wrap items-center gap-2">
                 Incident Command & Dispatch Center
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                   wsConnected 
@@ -320,10 +320,10 @@ export default function AdminDashboardPage() {
                   {wsConnected ? 'Live' : 'Offline'}
                 </span>
               </h1>
-              <p className="text-xs text-slate-400">Triage campus incidents, review AI recommendations, and dispatch technicians</p>
+              <p className="text-xs text-slate-400 truncate">Triage campus incidents, review AI recommendations, and dispatch technicians</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => loadData(false)} className="border-slate-800 text-slate-300 hover:text-white text-xs">
+          <Button variant="outline" size="sm" onClick={() => loadData(false)} className="w-full sm:w-auto border-slate-800 text-slate-300 hover:text-white text-xs shrink-0">
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh Incidents
           </Button>
         </div>
@@ -845,11 +845,11 @@ export default function AdminDashboardPage() {
 
       {/* Dispatch Modal */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-xl max-h-[88vh] overflow-y-auto overflow-x-hidden p-3.5 sm:p-6">
+          <DialogHeader className="pr-7 sm:pr-8">
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Sparkles className="w-5 h-5 text-indigo-400 shrink-0" /> 
-              <span>{selectedTicket?.work_order || isIncidentOverdue(selectedTicket) ? 'Reassign Maintenance Technician' : 'Technician Dispatch Engine'}</span>
+              <span className="truncate">{selectedTicket?.work_order || isIncidentOverdue(selectedTicket) ? 'Reassign Maintenance Technician' : 'Technician Dispatch Engine'}</span>
             </DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
               {selectedTicket?.work_order || isIncidentOverdue(selectedTicket)
@@ -922,15 +922,15 @@ export default function AdminDashboardPage() {
                     return (
                       <div
                         key={techId}
-                        className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${
+                        className={`p-2.5 sm:p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 transition ${
                           isBestMatch
                             ? 'bg-indigo-950/20 border-indigo-500/40 hover:border-indigo-500/60'
                             : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
                         }`}
                       >
                         <div className="space-y-1.5 min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-bold text-white">{rec.technician.full_name}</span>
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <span className="text-xs sm:text-sm font-bold text-white truncate max-w-full">{rec.technician.full_name}</span>
                             
                             {/* Availability Pill */}
                             {isFree ? (
@@ -969,7 +969,7 @@ export default function AdminDashboardPage() {
                             size="sm"
                             disabled={assigning}
                             onClick={() => handleAssign(techId)}
-                            className={`w-full sm:w-auto text-xs h-9 sm:h-8 font-medium shadow-md ${
+                            className={`w-full sm:w-auto text-xs h-8 font-medium shadow-md ${
                               isFree
                                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                                 : 'bg-indigo-600 hover:bg-indigo-500 text-white'
@@ -989,8 +989,8 @@ export default function AdminDashboardPage() {
 
       {/* Verification Modal */}
       <Dialog open={!!inspectTicket} onOpenChange={() => setInspectTicket(null)}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-2xl max-h-[88vh] overflow-y-auto overflow-x-hidden p-3.5 sm:p-6">
+          <DialogHeader className="pr-7 sm:pr-8">
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" /> 
               <span>Repair Inspection & Audit Trail</span>

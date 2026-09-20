@@ -82,7 +82,9 @@ function ReportContent() {
 
   // Form state
   const [description, setDescription] = useState('');
+  const [selectedUrgency, setSelectedUrgency] = useState<'IMMEDIATE' | 'HIGH' | 'MEDIUM' | 'LOW'>('LOW');
   const [safetyRisk, setSafetyRisk] = useState(false);
+  const [classInProgress, setClassInProgress] = useState(false);
   const [unusableRisk, setUnusableRisk] = useState(false);
   const [affectedCount, setAffectedCount] = useState(1);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -413,19 +415,39 @@ function ReportContent() {
   const newBuildingRooms = roomsOnSelectedFloor.filter((r) => r.building_code === 'IT-NEW');
   const currentRoomObj = roomsOnSelectedFloor.find((r) => (r.ID || r.id).toString() === selectedRoomId);
 
-  // Priority Calculation with simple English feedback
+  // Priority & SLA Turnaround Calculation (Campus Standards)
   const calculateLivePriority = () => {
-    let score = 0;
-    if (safetyRisk) score += 40;
-    if (unusableRisk) score += 35;
-    if (affectedCount > 10) score += 25;
-    else if (affectedCount >= 2) score += 15;
-    else score += 5;
-
-    if (score >= 75) return { level: 'CRITICAL', sla: 'Within 2 Hours', description: 'Immediate emergency response required', color: 'bg-rose-500/20 text-rose-400 border-rose-500/30' };
-    if (score >= 50) return { level: 'HIGH', sla: 'Within 8 Hours', description: 'Same-day urgent priority', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
-    if (score >= 25) return { level: 'MEDIUM', sla: 'Within 24 Hours', description: 'Next-day maintenance schedule', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' };
-    return { level: 'LOW', sla: 'Within 3 Days', description: 'Routine operational repair', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' };
+    // If active safety hazard, ongoing lecture/exam, or user picked Immediate
+    if (safetyRisk || classInProgress || selectedUrgency === 'IMMEDIATE') {
+      return { 
+        level: 'CRITICAL', 
+        sla: 'Within 1 Hour', 
+        description: 'Immediate emergency dispatch required', 
+        color: 'bg-rose-500/20 text-rose-400 border-rose-500/30' 
+      };
+    }
+    if (selectedUrgency === 'HIGH' || unusableRisk || affectedCount > 10) {
+      return { 
+        level: 'HIGH', 
+        sla: 'Within 4 Hours', 
+        description: 'Urgent priority for today’s sessions', 
+        color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' 
+      };
+    }
+    if (selectedUrgency === 'MEDIUM' || affectedCount >= 2) {
+      return { 
+        level: 'MEDIUM', 
+        sla: 'Within 8 Hours (Same Day)', 
+        description: 'Standard repair within regular work hours', 
+        color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' 
+      };
+    }
+    return { 
+      level: 'LOW', 
+      sla: 'Within 24 Hours (Next Day)', 
+      description: 'Routine maintenance and scheduled inspection', 
+      color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+    };
   };
 
   const livePriority = calculateLivePriority();
@@ -469,6 +491,7 @@ function ReportContent() {
         uploadedUrl = uploadRes.data.url;
       }
 
+      const currentLive = calculateLivePriority();
       await api.post('/requests', {
         room_id: parseInt(selectedRoomId),
         asset_id: selectedAssetId ? parseInt(selectedAssetId) : null,
@@ -476,16 +499,20 @@ function ReportContent() {
         custom_equipment_name: selectedCategory === 'Other' ? customEquipmentName : '',
         description,
         image_url: uploadedUrl,
-        safety_risk: safetyRisk,
-        unusable_risk: unusableRisk,
+        safety_risk: safetyRisk || classInProgress || selectedUrgency === 'IMMEDIATE',
+        unusable_risk: unusableRisk || selectedUrgency === 'HIGH',
         affected_count: affectedCount,
+        immediate_attention: selectedUrgency === 'IMMEDIATE' || safetyRisk || classInProgress,
+        requested_priority: currentLive.level,
       });
 
       setSuccessMessage('Thank you! Your maintenance incident has been submitted. Maintenance staff and technicians have been alerted.');
       setDescription('');
       setImageFile(null);
       setImagePreview(null);
+      setSelectedUrgency('LOW');
       setSafetyRisk(false);
+      setClassInProgress(false);
       setUnusableRisk(false);
       setAffectedCount(1);
       setSelectedCategory('');
@@ -540,10 +567,10 @@ function ReportContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-12">
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 overflow-x-hidden w-full max-w-full">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+      <main className="max-w-4xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6 space-y-6">
         
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -793,51 +820,139 @@ function ReportContent() {
                     </div>
                   )}
 
-                  {/* STEP 3: SIMPLE, MEANINGFUL PRIORITY QUESTIONS */}
+                  {/* STEP 3: URGENCY & REQUIRED RESOLUTION TIMEFRAME */}
                   <div className="space-y-4 p-4 rounded-xl bg-slate-950/70 border border-slate-800">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <label className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-                        <Sparkles className="w-4 h-4" /> 3. Help Us Understand the Urgency
-                      </label>
-                      <Badge variant="outline" className={`px-2.5 py-1 text-xs font-bold border ${livePriority.color}`}>
-                        Estimated Priority: {livePriority.level} ({livePriority.sla})
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4" /> 3. How Urgently Do You Need This Fixed?
+                        </label>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Select your required repair timeframe for campus technicians.
+                        </p>
+                      </div>
+                      <Badge variant="outline" className={`px-2.5 py-1 text-xs font-bold border shrink-0 ${livePriority.color}`}>
+                        Target SLA: {livePriority.level} ({livePriority.sla})
                       </Badge>
                     </div>
 
-                    <div className="space-y-3 pt-1">
-                      
-                      {/* Question 1: Safety */}
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900 border border-slate-800 gap-3">
-                        <div className="space-y-0.5">
+                    {/* Direct Urgency Selector Buttons (4 Tiers) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
+                      {[
+                        {
+                          id: 'IMMEDIATE',
+                          badge: 'Within 1 Hour',
+                          title: 'Immediate / Emergency',
+                          desc: 'Lecture or exam in session, safety risk, or total blocker',
+                          icon: '🚨',
+                          activeClass: 'bg-rose-500/20 border-rose-500 text-white shadow-md shadow-rose-500/10',
+                        },
+                        {
+                          id: 'HIGH',
+                          badge: 'Within 4 Hours',
+                          title: 'Urgent Priority',
+                          desc: 'Needed for today’s classes or faculty operations',
+                          icon: '⚡',
+                          activeClass: 'bg-amber-500/20 border-amber-500 text-white shadow-md shadow-amber-500/10',
+                        },
+                        {
+                          id: 'MEDIUM',
+                          badge: 'Within 8 Hours',
+                          title: 'Standard (Same Day)',
+                          desc: 'Faulty equipment, needs fix before campus closes',
+                          icon: '⏱️',
+                          activeClass: 'bg-blue-500/20 border-blue-500 text-white shadow-md shadow-blue-500/10',
+                        },
+                        {
+                          id: 'LOW',
+                          badge: 'Within 24 Hours',
+                          title: 'Routine Maintenance',
+                          desc: 'Minor issue or scheduled maintenance checkup',
+                          icon: '📋',
+                          activeClass: 'bg-emerald-500/20 border-emerald-500 text-white shadow-md shadow-emerald-500/10',
+                        },
+                      ].map((u) => {
+                        const isSelected = selectedUrgency === u.id || (u.id === 'IMMEDIATE' && (safetyRisk || classInProgress));
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedUrgency(u.id as any);
+                            }}
+                            className={`p-3 rounded-lg border text-left transition flex flex-col justify-between gap-2 ${
+                              isSelected
+                                ? u.activeClass
+                                : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-base">{u.icon}</span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                                isSelected ? 'bg-white/10 text-white' : 'bg-slate-800 text-slate-400'
+                              }`}>
+                                {u.badge}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-white">{u.title}</p>
+                              <p className="text-[10px] text-slate-400 leading-tight mt-0.5">{u.desc}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Specific Situational Context Factors */}
+                    <div className="space-y-2.5 pt-2 border-t border-slate-800/80">
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        Additional Situational Factors:
+                      </span>
+
+                      {/* Factor 1: Safety Hazard */}
+                      <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-slate-900/90 border border-slate-800 gap-3">
+                        <div className="space-y-0.5 min-w-0">
                           <span className="text-xs font-medium text-white flex items-center gap-1.5">
-                            <Flame className="w-4 h-4 text-rose-400 shrink-0" /> Is there an immediate safety danger or hazard?
+                            <Flame className="w-4 h-4 text-rose-400 shrink-0" /> Is there an active safety danger or hazard?
                           </span>
                           <p className="text-[11px] text-slate-400">
-                            For example: electrical sparks, smoke, burning smell, or water leaking near electric sockets.
+                            Electrical sparks, smoke, burning smell, or water near sockets (Immediately sets Within 1 Hour).
                           </p>
                         </div>
-                        <Switch checked={safetyRisk} onCheckedChange={setSafetyRisk} />
+                        <Switch
+                          checked={safetyRisk}
+                          onCheckedChange={(checked) => {
+                            setSafetyRisk(checked);
+                            if (checked) setSelectedUrgency('IMMEDIATE');
+                          }}
+                        />
                       </div>
 
-                      {/* Question 2: Usability */}
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900 border border-slate-800 gap-3">
-                        <div className="space-y-0.5">
+                      {/* Factor 2: Class in Progress */}
+                      <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-slate-900/90 border border-slate-800 gap-3">
+                        <div className="space-y-0.5 min-w-0">
                           <span className="text-xs font-medium text-white flex items-center gap-1.5">
-                            <Layers className="w-4 h-4 text-amber-400 shrink-0" /> Is the room or equipment completely unusable right now?
+                            <GraduationCap className="w-4 h-4 text-amber-400 shrink-0" /> Is a lecture, lab session, or exam in progress right now?
                           </span>
                           <p className="text-[11px] text-slate-400">
-                            For example: the lecture, lab session, or faculty work cannot proceed at all.
+                            Academic work is actively blocked and requires an on-site technician right now (Within 1 Hour).
                           </p>
                         </div>
-                        <Switch checked={unusableRisk} onCheckedChange={setUnusableRisk} />
+                        <Switch
+                          checked={classInProgress}
+                          onCheckedChange={(checked) => {
+                            setClassInProgress(checked);
+                            if (checked) setSelectedUrgency('IMMEDIATE');
+                          }}
+                        />
                       </div>
 
-                      {/* Question 3: Population */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg bg-slate-900 border border-slate-800 gap-3">
+                      {/* Factor 3: People affected */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 sm:p-3 rounded-lg bg-slate-900/90 border border-slate-800 gap-2.5">
                         <span className="text-xs font-medium text-white flex items-center gap-1.5">
-                          <Users className="w-4 h-4 text-blue-400 shrink-0" /> How many people are affected by this problem?
+                          <Users className="w-4 h-4 text-blue-400 shrink-0" /> How many people are affected?
                         </span>
-                        <div className="flex gap-2 shrink-0">
+                        <div className="flex flex-wrap gap-1.5 shrink-0">
                           {[
                             { count: 1, label: 'Just me (1)' },
                             { count: 5, label: 'Small group (2-10)' },
@@ -847,7 +962,7 @@ function ReportContent() {
                               key={item.count}
                               type="button"
                               onClick={() => setAffectedCount(item.count)}
-                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+                              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
                                 affectedCount === item.count
                                   ? 'bg-indigo-600 text-white shadow'
                                   : 'bg-slate-800 text-slate-400 hover:text-white'
@@ -1033,8 +1148,8 @@ function ReportContent() {
 
       {/* Star Rating Dialog */}
       <Dialog open={!!ratingTicket} onOpenChange={(open) => { if (!open) closeRatingDialog(); }}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-md max-h-[85vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-md max-h-[88vh] overflow-y-auto overflow-x-hidden p-3.5 sm:p-6">
+          <DialogHeader className="pr-7 sm:pr-8">
             <DialogTitle className="flex items-center gap-2 text-base text-white">
               <Star className="w-5 h-5 text-amber-400 fill-amber-400" /> Rate Maintenance Service
             </DialogTitle>

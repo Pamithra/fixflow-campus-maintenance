@@ -252,19 +252,19 @@ export default function TechnicianTasksPage() {
   const isAdmin = user.role === 'ADMIN';
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 space-y-6">
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 space-y-6 overflow-x-hidden w-full max-w-full">
       <Navbar />
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-3 sm:px-6 space-y-6">
         
         {/* Sub-Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800 backdrop-blur">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-3.5 sm:p-4 rounded-xl border border-slate-800 backdrop-blur">
           <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-lg border ${isAdmin ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+            <div className={`p-2.5 rounded-lg border shrink-0 ${isAdmin ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
               {isAdmin ? <Shield className="w-5 h-5" /> : <Wrench className="w-5 h-5" />}
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-white flex items-center gap-2">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-white flex flex-wrap items-center gap-2">
                 {isAdmin ? 'Campus Maintenance Tasks & Field Work Orders' : 'My Assigned Maintenance Tasks'}
               </h1>
               <p className="text-xs text-slate-400">
@@ -278,7 +278,7 @@ export default function TechnicianTasksPage() {
               </p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={loadTasks} className="border-slate-800 text-slate-300 hover:text-white text-xs">
+          <Button variant="outline" size="sm" onClick={loadTasks} className="w-full sm:w-auto border-slate-800 text-slate-300 hover:text-white text-xs shrink-0">
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh Tasks
           </Button>
         </div>
@@ -508,11 +508,11 @@ export default function TechnicianTasksPage() {
                   return (
                     <div
                       key={wo.ID}
-                      className="p-5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-4 hover:border-slate-700 transition"
+                      className="p-3.5 sm:p-5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3.5 sm:space-y-4 hover:border-slate-700 transition"
                     >
                       {/* Top Bar: Ticket ID, Severity Badge, Status Badge, SLA */}
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                           <span className="font-mono text-xs font-bold text-amber-400">{req?.ticket_number}</span>
                           
                           {/* Priority / Severity Badge */}
@@ -542,9 +542,9 @@ export default function TechnicianTasksPage() {
                                 'bg-slate-800 text-slate-300 border border-slate-700'
                               }`}
                             >
-                              {wo.status === 'PENDING' ? 'Pending Dispatch (Unassigned)' :
-                               wo.status === 'ASSIGNED' ? 'Ready to Start (Assigned)' :
-                               wo.status === 'IN_PROGRESS' ? 'Repair Underway (In Progress)' :
+                              {wo.status === 'PENDING' ? 'Pending Dispatch' :
+                               wo.status === 'ASSIGNED' ? 'Ready to Start' :
+                               wo.status === 'IN_PROGRESS' ? 'Repair Underway' :
                                wo.status === 'COMPLETED' ? 'Completed (Awaiting Sign-off)' :
                                'Resolved & Closed'}
                             </Badge>
@@ -555,31 +555,31 @@ export default function TechnicianTasksPage() {
                         {sla && !isCompleted && !isClosed && (
                           <Badge
                             variant="outline"
-                            className={`text-[11px] font-mono px-2.5 py-0.5 flex items-center gap-1 ${
+                            className={`text-[10px] sm:text-[11px] font-mono px-2 py-0.5 flex items-center gap-1 max-w-full truncate self-start sm:self-auto ${
                               sla.breached 
                                 ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse'
                                 : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                             }`}
                           >
-                            <Hourglass className="w-3 h-3" />
-                            {sla.breached ? '🔴 Target Deadline Passed (SLA Overdue)' : `⏱️ Target Deadline: ${sla.text}`}
+                            <Hourglass className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{sla.breached ? '🔴 SLA Overdue' : `⏱️ Deadline: ${sla.text}`}</span>
                           </Badge>
                         )}
                       </div>
 
                       {/* Exact Maintenance Location Breadcrumb */}
-                      <div className="p-3 rounded-lg bg-indigo-950/25 border border-indigo-500/20 text-xs space-y-1.5">
-                        <div className="flex items-center gap-1.5 text-indigo-400 font-semibold text-[11px]">
+                      <div className="p-2.5 sm:p-3 rounded-lg bg-indigo-950/25 border border-indigo-500/20 text-xs space-y-1">
+                        <div className="flex items-center gap-1.5 text-indigo-400 font-semibold text-[10px] sm:text-[11px]">
                           <MapPin className="w-3.5 h-3.5 shrink-0" />
                           <span>Exact Maintenance Location Path:</span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs">
                           <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-medium">
                             IT Faculty
                           </span>
                           <span className="text-slate-600 font-bold">➔</span>
                           <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-indigo-300 font-medium">
-                            {floor ? (floor.floor_number === 0 ? 'Floor 0 (Ground Floor)' : `Floor ${floor.floor_number}`) : 'Ground Floor'}
+                            {floor ? (floor.floor_number === 0 ? 'Floor 0 (Ground)' : `Floor ${floor.floor_number}`) : 'Ground Floor'}
                           </span>
                           <span className="text-slate-600 font-bold">➔</span>
                           <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-amber-300 font-medium">
@@ -777,11 +777,11 @@ export default function TechnicianTasksPage() {
 
       {/* Dispatch / Reassign Modal for Admin */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-xl max-h-[88vh] overflow-y-auto overflow-x-hidden p-3.5 sm:p-6">
+          <DialogHeader className="pr-7 sm:pr-8">
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Sparkles className="w-5 h-5 text-indigo-400 shrink-0" /> 
-              <span>{selectedTicket?.work_order || selectedTicket?.status !== 'REPORTED' ? 'Reassign Maintenance Technician' : 'Technician Dispatch Engine'}</span>
+              <span className="truncate">{selectedTicket?.work_order || selectedTicket?.status !== 'REPORTED' ? 'Reassign Maintenance Technician' : 'Technician Dispatch Engine'}</span>
             </DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
               {selectedTicket?.work_order || selectedTicket?.status !== 'REPORTED'
@@ -853,18 +853,18 @@ export default function TechnicianTasksPage() {
                     return (
                       <div
                         key={techId}
-                        className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 hover:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition"
+                        className="p-2.5 sm:p-3 rounded-lg bg-slate-950/60 border border-slate-800 hover:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 transition"
                       >
                         <div className="space-y-1.5 flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold text-sm text-white">{rec.technician.full_name}</span>
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <span className="font-semibold text-xs sm:text-sm text-white truncate max-w-full">{rec.technician.full_name}</span>
                             {isFree ? (
                               <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] flex items-center gap-1 font-semibold">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Free (0 Active Tasks)
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Free (0 Active)
                               </Badge>
                             ) : (
                               <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-300/80 bg-amber-500/10">
-                                ⏳ Busy ({rec.active_workload} active jobs)
+                                ⏳ Busy ({rec.active_workload} active)
                               </Badge>
                             )}
                             {rec.skill_match && (
@@ -873,12 +873,12 @@ export default function TechnicianTasksPage() {
                               </Badge>
                             )}
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-400">
                             <span>Trade: <strong className="text-slate-300">{rec.technician.skill_category || 'General'}</strong></span>
                             {rec.technician.phone_number && (
                               <>
                                 <span className="hidden sm:inline">•</span>
-                                <span>Phone: <a href={`tel:${rec.technician.phone_number}`} className="text-slate-300 hover:underline">{rec.technician.phone_number}</a></span>
+                                <span className="truncate">Phone: <a href={`tel:${rec.technician.phone_number}`} className="text-slate-300 hover:underline">{rec.technician.phone_number}</a></span>
                               </>
                             )}
                           </div>
@@ -889,7 +889,7 @@ export default function TechnicianTasksPage() {
                             size="sm"
                             disabled={assigning}
                             onClick={() => handleAssign(techId)}
-                            className={`w-full sm:w-auto text-xs h-9 sm:h-8 font-medium shadow-md ${
+                            className={`w-full sm:w-auto text-xs h-8 font-medium shadow-md ${
                               isFree
                                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                                 : 'bg-indigo-600 hover:bg-indigo-500 text-white'

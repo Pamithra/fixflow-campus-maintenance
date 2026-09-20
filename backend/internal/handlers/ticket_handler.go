@@ -20,10 +20,27 @@ type CreateTicketRequest struct {
 	SafetyRisk          bool   `json:"safety_risk"`
 	UnusableRisk        bool   `json:"unusable_risk"`
 	AffectedCount       int    `json:"affected_count"`
+	ImmediateAttention  bool   `json:"immediate_attention"`
+	RequestedPriority   string `json:"requested_priority"`
 }
 
 // CalculatePriority executes the multi-factor scoring algorithm
-func CalculatePriority(safety bool, unusable bool, affected int) (int, models.PriorityLevel) {
+func CalculatePriority(safety bool, unusable bool, affected int, immediate bool, requestedPriority string) (int, models.PriorityLevel) {
+	// Direct immediate / emergency escalation
+	if immediate || safety || requestedPriority == "CRITICAL" {
+		return 95, models.PriorityCritical
+	}
+
+	if requestedPriority == "HIGH" {
+		return 70, models.PriorityHigh
+	}
+	if requestedPriority == "MEDIUM" {
+		return 40, models.PriorityMedium
+	}
+	if requestedPriority == "LOW" {
+		return 15, models.PriorityLow
+	}
+
 	score := 0
 
 	// 1. Safety Hazard Weight (40%)
@@ -70,7 +87,7 @@ func CreateRequest(c *gin.Context) {
 	}
 
 	// Execute Smart Priority Engine
-	score, priority := CalculatePriority(req.SafetyRisk, req.UnusableRisk, req.AffectedCount)
+	score, priority := CalculatePriority(req.SafetyRisk, req.UnusableRisk, req.AffectedCount, req.ImmediateAttention, req.RequestedPriority)
 
 	// Generate sequential ticket number (FF-10000 + count)
 	var ticketCount int64

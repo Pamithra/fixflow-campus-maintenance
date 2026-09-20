@@ -162,17 +162,17 @@ func AssignWorkOrder(c *gin.Context) {
 		return
 	}
 
-	// Calculate SLA Target Hours based on Priority
+	// Calculate SLA Target Hours based on Priority (Campus Standards)
 	var slaHours int
 	switch ticket.CalculatedPriority {
 	case models.PriorityCritical:
-		slaHours = 2
+		slaHours = 1 // 1 Hour for Critical / Immediate
 	case models.PriorityHigh:
-		slaHours = 8
+		slaHours = 4 // 4 Hours for High Urgency
 	case models.PriorityMedium:
-		slaHours = 24
+		slaHours = 8 // 8 Hours (Same Day) for Medium
 	default:
-		slaHours = 72
+		slaHours = 24 // 24 Hours (Next Day) for Low Routine
 	}
 	deadline := time.Now().Add(time.Duration(slaHours) * time.Hour)
 
