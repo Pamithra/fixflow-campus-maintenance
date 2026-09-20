@@ -219,14 +219,14 @@ export default function HomePage() {
               </>
             ) : (
               <>
-                <Link href="/login?mode=signup">
-                  <Button variant="outline" size="sm" className="border-slate-800 hover:bg-slate-900 text-slate-300 text-xs">
-                    Sign Up
+                <Link href="/login">
+                  <Button variant="outline" size="sm" className="border-slate-800 hover:bg-slate-900 text-slate-300 hover:text-white text-xs">
+                    Log In
                   </Button>
                 </Link>
-                <Link href="/login?redirect=/report">
+                <Link href="/signup">
                   <Button size="sm" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs shadow-lg shadow-indigo-500/20 font-medium">
-                    Report Issue <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                    Sign Up
                   </Button>
                 </Link>
               </>
