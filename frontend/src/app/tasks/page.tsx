@@ -30,6 +30,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Navbar from '@/components/Navbar';
+import { resolveImageUrl } from '@/lib/utils';
 
 const getBuildingDisplayName = (buildingName?: string, roomNumber?: string) => {
   if (buildingName && buildingName !== 'Main Building' && !buildingName.includes('Faculty of')) {
@@ -514,6 +515,12 @@ export default function TechnicianTasksPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                           <span className="font-mono text-xs font-bold text-amber-400">{req?.ticket_number}</span>
+                          {(req?.created_at || req?.CreatedAt) && (
+                            <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-500" />
+                              {new Date(req.created_at || req.CreatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                            </span>
+                          )}
                           
                           {/* Priority / Severity Badge */}
                           <Badge
@@ -607,13 +614,18 @@ export default function TechnicianTasksPage() {
                         {req?.image_url && (
                           <div className="space-y-1">
                             <span className="text-[10px] text-slate-400 font-semibold uppercase">Initial Problem Photo</span>
-                            <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-800">
-                              <img src={req.image_url} alt="Initial Defect" className="w-full h-full object-cover" />
+                            <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-800 cursor-pointer" onClick={() => window.open(resolveImageUrl(req.image_url), '_blank')}>
+                              <img 
+                                src={resolveImageUrl(req.image_url)} 
+                                alt="Initial Defect" 
+                                className="w-full h-full object-cover hover:scale-105 transition" 
+                                onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                              />
                             </div>
                           </div>
                         )}
                         <div className="text-xs text-slate-400 space-y-1">
-                          <div>Reported by: <strong className="text-slate-300">{reporter?.full_name || 'Campus User'}</strong></div>
+                          <div>Reported by: <strong className="text-slate-300">{reporter?.full_name || 'Campus User'}</strong> {(req?.created_at || req?.CreatedAt) && <span className="text-slate-500 font-mono text-[11px] ml-1">at {new Date(req.created_at || req.CreatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>}</div>
                           <div>Assigned Technician: <strong className="text-indigo-300">{wo.Technician?.full_name || wo.technician?.full_name || user?.full_name || 'Assigned Technician'}</strong></div>
                         </div>
                       </div>
@@ -737,8 +749,13 @@ export default function TechnicianTasksPage() {
                             {wo.after_image_url && (
                               <div className="pt-1">
                                 <span className="text-[10px] text-slate-400 font-semibold uppercase">Photo of Fixed Equipment:</span>
-                                <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 mt-1">
-                                  <img src={wo.after_image_url} alt="Repaired Evidence" className="w-full h-full object-cover" />
+                                <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 mt-1 cursor-pointer" onClick={() => window.open(resolveImageUrl(wo.after_image_url), '_blank')}>
+                                  <img 
+                                    src={resolveImageUrl(wo.after_image_url)} 
+                                    alt="Repaired Evidence" 
+                                    className="w-full h-full object-cover hover:scale-105 transition" 
+                                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                  />
                                 </div>
                               </div>
                             )}
@@ -758,8 +775,13 @@ export default function TechnicianTasksPage() {
                             {wo.after_image_url && (
                               <div className="pt-1">
                                 <span className="text-[10px] text-slate-400 font-semibold uppercase">Photo of Fixed Equipment:</span>
-                                <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 mt-1">
-                                  <img src={wo.after_image_url} alt="Repaired Evidence" className="w-full h-full object-cover" />
+                                <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 mt-1 cursor-pointer" onClick={() => window.open(resolveImageUrl(wo.after_image_url), '_blank')}>
+                                  <img 
+                                    src={resolveImageUrl(wo.after_image_url)} 
+                                    alt="Repaired Evidence" 
+                                    className="w-full h-full object-cover hover:scale-105 transition" 
+                                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                  />
                                 </div>
                               </div>
                             )}

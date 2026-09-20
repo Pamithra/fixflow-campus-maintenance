@@ -41,6 +41,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import Navbar from '@/components/Navbar';
+import { resolveImageUrl } from '@/lib/utils';
 
 const EQUIPMENT_CATEGORIES = [
   { id: 'Computers & Workstations', label: 'Computers & Workstations', icon: Monitor },
@@ -1094,6 +1095,21 @@ function ReportContent() {
 
                           <p className="text-xs sm:text-sm text-slate-300">{t.description}</p>
 
+                          {/* Ticket Photo Preview */}
+                          {t.image_url && (
+                            <div className="space-y-1">
+                              <span className="text-[10px] text-slate-400 font-semibold uppercase">Attached Problem Photo</span>
+                              <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-800 cursor-pointer" onClick={() => window.open(resolveImageUrl(t.image_url), '_blank')}>
+                                <img 
+                                  src={resolveImageUrl(t.image_url)} 
+                                  alt="Reported Defect" 
+                                  className="w-full h-full object-cover hover:scale-105 transition" 
+                                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                />
+                              </div>
+                            </div>
+                          )}
+
                           {/* Technician Notes & Repair Confirmation */}
                           {isClosed && (
                             <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 space-y-1">
@@ -1110,7 +1126,7 @@ function ReportContent() {
                           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-900 pt-2 text-[11px] text-slate-500">
                             <div className="flex items-center gap-1.5">
                               <Clock className="w-3.5 h-3.5" />
-                              Reported on {new Date(t.CreatedAt).toLocaleDateString()}
+                              Reported on {new Date(t.CreatedAt).toLocaleDateString()} at {new Date(t.CreatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                             </div>
 
                             {isClosed && (

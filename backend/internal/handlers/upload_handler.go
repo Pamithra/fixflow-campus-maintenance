@@ -33,8 +33,18 @@ func UploadImage(c *gin.Context) {
 		return
 	}
 
+	// Determine scheme and host dynamically from request
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	host := c.Request.Host
+	if host == "" {
+		host = "localhost:8080"
+	}
+
 	// Return public URL path
-	fileURL := fmt.Sprintf("http://localhost:8080/uploads/%s", filename)
+	fileURL := fmt.Sprintf("%s://%s/uploads/%s", scheme, host, filename)
 	c.JSON(http.StatusOK, gin.H{
 		"url":      fileURL,
 		"filename": filename,

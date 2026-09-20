@@ -263,7 +263,7 @@ export default function Navbar() {
                               )}
                             </div>
                             <span className="text-[10px] text-slate-500">
-                              {n.CreatedAt ? new Date(n.CreatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                              {n.CreatedAt ? new Date(n.CreatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : 'Recent'}
                             </span>
                           </div>
                           <p className="text-slate-300 text-[11px] leading-relaxed break-words">{n.message}</p>
