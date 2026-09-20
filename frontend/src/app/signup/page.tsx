@@ -198,7 +198,7 @@ function SignupForm() {
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="signup-phone" className="text-xs font-medium text-slate-300">Phone Number (For SMS Updates)</label>
+              <label htmlFor="signup-phone" className="text-xs font-medium text-slate-300">Phone Number</label>
               <Input
                 id="signup-phone"
                 name="tel"
