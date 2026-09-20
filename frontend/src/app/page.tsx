@@ -137,7 +137,7 @@ export default function HomePage() {
     if (user) {
       router.push(targetReportPath);
     } else {
-      router.push(`/login?redirect=${encodeURIComponent(targetReportPath)}`);
+      router.push(`/signup?redirect=${encodeURIComponent(targetReportPath)}`);
     }
   };
 

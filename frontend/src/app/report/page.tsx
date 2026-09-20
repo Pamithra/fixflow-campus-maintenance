@@ -124,7 +124,7 @@ function ReportContent() {
     if (!authLoading) {
       if (!user) {
         const currentPath = window.location.pathname + window.location.search;
-        router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+        router.push(`/signup?redirect=${encodeURIComponent(currentPath)}`);
       } else if (user.role === 'ADMIN') {
         router.push('/dashboard');
       }
