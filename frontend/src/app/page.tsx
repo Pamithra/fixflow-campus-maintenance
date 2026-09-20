@@ -466,7 +466,7 @@ export default function HomePage() {
           setShowQRScanner(open);
         }}
       >
-        <DialogContent className="bg-slate-900 border border-slate-800 text-white sm:max-w-md">
+        <DialogContent className="bg-slate-900 border border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-md max-h-[85vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2 text-white">
               <QrCode className="w-5 h-5 text-indigo-400" />

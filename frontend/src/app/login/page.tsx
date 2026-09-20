@@ -298,7 +298,7 @@ function LoginForm() {
 
       {/* Forgot / Reset Password Dialog */}
       <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
-        <DialogContent className="bg-slate-900 border border-slate-800 text-white sm:max-w-md">
+        <DialogContent className="bg-slate-900 border border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-md max-h-[85vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <div className="w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-2">
               <KeyRound className="w-5 h-5 text-indigo-400" />

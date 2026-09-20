@@ -571,21 +571,21 @@ function ReportContent() {
                   </div>
 
                   {/* QR Scan or Manual Tag Quick Box */}
-                  <div className="flex items-center gap-2 bg-slate-950/80 p-1.5 rounded-lg border border-slate-800">
+                  <div className="flex items-center gap-2 bg-slate-950/80 p-1.5 rounded-lg border border-slate-800 w-full sm:w-auto">
                     <QrCode className="w-4 h-4 text-indigo-400 shrink-0 ml-1" />
                     <Input
                       type="text"
                       placeholder="Scan/Type QR Tag (e.g. AC-IT-NEW-ERPLAB-01)"
                       value={manualQRTag}
                       onChange={(e) => setManualQRTag(e.target.value)}
-                      className="h-7 text-xs bg-slate-900 border-slate-700 text-white w-52"
+                      className="h-7 text-xs bg-slate-900 border-slate-700 text-white w-full sm:w-52 flex-1"
                     />
                     <Button
                       type="button"
                       size="sm"
                       onClick={() => applyQRTag(manualQRTag.trim())}
                       disabled={!manualQRTag.trim() || qrScanning}
-                      className="h-7 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2.5"
+                      className="h-7 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 shrink-0"
                     >
                       {qrScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Apply'}
                     </Button>
@@ -1033,7 +1033,7 @@ function ReportContent() {
 
       {/* Star Rating Dialog */}
       <Dialog open={!!ratingTicket} onOpenChange={(open) => { if (!open) closeRatingDialog(); }}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-md max-h-[85vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base text-white">
               <Star className="w-5 h-5 text-amber-400 fill-amber-400" /> Rate Maintenance Service

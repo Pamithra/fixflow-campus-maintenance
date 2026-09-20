@@ -214,8 +214,8 @@ export default function Navbar() {
 
             {/* Notifications Popover Dropdown */}
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-slate-900/95 border border-slate-800 rounded-xl shadow-2xl backdrop-blur-xl z-50 overflow-hidden animate-in fade-in zoom-in-95">
-                <div className="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+              <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-slate-900/95 border border-slate-800 rounded-xl shadow-2xl backdrop-blur-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 max-h-[80vh] flex flex-col">
+                <div className="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 shrink-0">
                   <span className="text-xs font-bold text-white flex items-center gap-1.5">
                     <Bell className="w-3.5 h-3.5 text-indigo-400" /> Notifications & Alerts
                   </span>
@@ -235,7 +235,7 @@ export default function Navbar() {
                   </div>
                 </div>
 
-                <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/60 text-xs">
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/60 text-xs flex-1">
                   {notifications.length === 0 ? (
                     <div className="p-6 text-center text-slate-500">
                       No unread notifications. You are all caught up!

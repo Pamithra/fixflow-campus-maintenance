@@ -382,11 +382,11 @@ export default function AdminDashboardPage() {
 
         {/* Tabs: Queue vs Analytics */}
         <Tabs defaultValue="queue" className="space-y-6">
-          <TabsList className="bg-slate-900 border border-slate-800 p-1">
-            <TabsTrigger value="queue" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white flex items-center gap-2">
+          <TabsList className="bg-slate-900 border border-slate-800 p-1 w-full grid grid-cols-1 sm:grid-cols-2 h-auto gap-1">
+            <TabsTrigger value="queue" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white flex items-center justify-center gap-2 py-2 text-xs">
               <ListFilter className="w-4 h-4" /> Operational Queue ({incidents.length})
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white flex items-center gap-2">
+            <TabsTrigger value="analytics" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white flex items-center justify-center gap-2 py-2 text-xs">
               <BarChart3 className="w-4 h-4" /> Executive Analytics & Intelligence
             </TabsTrigger>
           </TabsList>
@@ -621,11 +621,11 @@ export default function AdminDashboardPage() {
                             </div>
 
                             {/* Action Buttons & SLA */}
-                            <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-end sm:items-center gap-2 shrink-0">
+                            <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center gap-2 shrink-0 w-full sm:w-auto">
                               {sla && !isCompleted && !isClosed && (
                                 <Badge
                                   variant="outline"
-                                  className={`text-[11px] font-mono px-2 py-0.5 flex items-center gap-1 ${
+                                  className={`text-[11px] font-mono px-2 py-0.5 flex items-center justify-center gap-1 ${
                                     sla.breached 
                                       ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse'
                                       : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
@@ -639,23 +639,23 @@ export default function AdminDashboardPage() {
                               {t.status === 'REPORTED' || (!wo?.technician_id && !wo?.TechnicianID) ? (
                                 <Button
                                   onClick={() => openDispatch(t)}
-                                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 h-auto flex items-center gap-1.5 shadow-lg shadow-indigo-600/20"
+                                  className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-2 sm:py-1.5 h-auto flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-600/20 font-medium"
                                 >
                                   <Zap className="w-3.5 h-3.5" /> Dispatch Tech
                                 </Button>
                               ) : isCompleted ? (
                                 <Button
                                   onClick={() => setInspectTicket(t)}
-                                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 h-auto flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 animate-pulse"
+                                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-2 sm:py-1.5 h-auto flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20 font-medium animate-pulse"
                                 >
                                   <Eye className="w-3.5 h-3.5" /> Inspect & Verify
                                 </Button>
                               ) : isClosed ? (
-                                <Badge className="bg-slate-800 text-slate-300 border border-slate-700 text-xs px-3 py-1 flex items-center gap-1">
+                                <Badge className="bg-slate-800 text-slate-300 border border-slate-700 text-xs px-3 py-1.5 flex items-center justify-center gap-1">
                                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Resolved & Verified
                                 </Badge>
                               ) : (
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                                   <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs px-2.5 py-1 flex items-center gap-1.5">
                                     <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
                                     {tech?.full_name || 'Assigned'}
@@ -665,7 +665,7 @@ export default function AdminDashboardPage() {
                                     <Button
                                       size="sm"
                                       onClick={() => openDispatch(t)}
-                                      className="bg-rose-600 hover:bg-rose-500 text-white text-xs px-2.5 py-1 h-7 flex items-center gap-1 shadow-md shadow-rose-600/20 font-semibold"
+                                      className="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white text-xs px-2.5 py-1.5 h-8 sm:h-7 flex items-center justify-center gap-1 shadow-md shadow-rose-600/20 font-semibold"
                                     >
                                       <RefreshCw className="w-3 h-3" /> Reassign Technician
                                     </Button>
@@ -705,12 +705,12 @@ export default function AdminDashboardPage() {
                                 <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
                                   <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Repair Finished by Technician • Waiting for Administrator Sign-off
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                                   <Button
                                     size="sm"
                                     onClick={() => handleVerify(wo.ID || wo.id)}
                                     disabled={verifying}
-                                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-7 px-3 font-semibold shadow-md shadow-emerald-600/20"
+                                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8 sm:h-7 px-3 font-semibold shadow-md shadow-emerald-600/20 flex items-center justify-center"
                                   >
                                     <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approve & Close
                                   </Button>
@@ -719,7 +719,7 @@ export default function AdminDashboardPage() {
                                     variant="outline"
                                     onClick={() => handleReopen(wo.ID || wo.id)}
                                     disabled={verifying}
-                                    className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs h-7 px-3"
+                                    className="w-full sm:w-auto border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs h-8 sm:h-7 px-3 flex items-center justify-center"
                                   >
                                     <RefreshCw className="w-3.5 h-3.5 mr-1" /> Request Rework
                                   </Button>
@@ -845,11 +845,11 @@ export default function AdminDashboardPage() {
 
       {/* Dispatch Modal */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-xl">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <Sparkles className="w-5 h-5 text-indigo-400" /> 
-              {selectedTicket?.work_order || isIncidentOverdue(selectedTicket) ? 'Reassign Maintenance Technician' : 'Technician Dispatch Engine'}
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Sparkles className="w-5 h-5 text-indigo-400 shrink-0" /> 
+              <span>{selectedTicket?.work_order || isIncidentOverdue(selectedTicket) ? 'Reassign Maintenance Technician' : 'Technician Dispatch Engine'}</span>
             </DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
               {selectedTicket?.work_order || isIncidentOverdue(selectedTicket)
@@ -874,9 +874,9 @@ export default function AdminDashboardPage() {
           )}
 
           {/* Availability Filter Buttons */}
-          <div className="flex items-center justify-between gap-2 pt-1">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
             <span className="text-xs font-semibold text-slate-300">Technician Availability:</span>
-            <div className="flex items-center gap-1.5 p-0.5 bg-slate-950 rounded-lg border border-slate-800 text-xs">
+            <div className="flex items-center gap-1.5 p-0.5 bg-slate-950 rounded-lg border border-slate-800 text-xs self-start sm:self-auto">
               <button
                 type="button"
                 onClick={() => setFilterFreeOnly(false)}
@@ -911,7 +911,7 @@ export default function AdminDashboardPage() {
             ) : recommendations.length === 0 ? (
               <div className="py-6 text-center text-slate-500 text-xs">No active technicians found.</div>
             ) : (
-              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[50vh] sm:max-h-96 overflow-y-auto pr-1">
                 {recommendations
                   .filter((rec) => (!filterFreeOnly ? true : rec.is_available || rec.active_workload === 0))
                   .map((rec, idx) => {
@@ -922,13 +922,13 @@ export default function AdminDashboardPage() {
                     return (
                       <div
                         key={techId}
-                        className={`p-3 rounded-lg border flex items-center justify-between gap-3 transition ${
+                        className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${
                           isBestMatch
                             ? 'bg-indigo-950/20 border-indigo-500/40 hover:border-indigo-500/60'
                             : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
                         }`}
                       >
-                        <div className="space-y-1.5 min-w-0">
+                        <div className="space-y-1.5 min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-xs font-bold text-white">{rec.technician.full_name}</span>
                             
@@ -942,20 +942,25 @@ export default function AdminDashboardPage() {
                                 ⏳ Busy ({rec.active_workload} active jobs)
                               </Badge>
                             )}
+
+                            {/* Mobile score indicator */}
+                            <Badge className="sm:hidden bg-indigo-500/15 border-indigo-500/30 text-indigo-300 text-[10px] font-mono">
+                              {rec.match_score} pts
+                            </Badge>
                           </div>
 
-                          <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
                             <span>Trade: <strong className="text-slate-300">{rec.technician.skill_category || 'General'}</strong></span>
                             {rec.technician.phone_number && (
                               <>
-                                <span>•</span>
-                                <span>Phone: <strong className="text-slate-300">{rec.technician.phone_number}</strong></span>
+                                <span className="hidden sm:inline">•</span>
+                                <span>Phone: <a href={`tel:${rec.technician.phone_number}`} className="text-slate-300 hover:underline">{rec.technician.phone_number}</a></span>
                               </>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2.5 shrink-0">
+                        <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0 w-full sm:w-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
                           <div className="text-right hidden sm:block">
                             <span className="text-xs font-mono font-bold text-indigo-400">{rec.match_score} pts</span>
                             <p className="text-[9px] text-slate-500">Score</p>
@@ -964,7 +969,7 @@ export default function AdminDashboardPage() {
                             size="sm"
                             disabled={assigning}
                             onClick={() => handleAssign(techId)}
-                            className={`text-xs h-8 font-medium shadow-md ${
+                            className={`w-full sm:w-auto text-xs h-9 sm:h-8 font-medium shadow-md ${
                               isFree
                                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                                 : 'bg-indigo-600 hover:bg-indigo-500 text-white'
@@ -984,10 +989,11 @@ export default function AdminDashboardPage() {
 
       {/* Verification Modal */}
       <Dialog open={!!inspectTicket} onOpenChange={() => setInspectTicket(null)}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-2xl">
+        <DialogContent className="bg-slate-900 border-slate-800 text-white w-[calc(100vw-1.5rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" /> Repair Inspection & Audit Trail
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" /> 
+              <span>Repair Inspection & Audit Trail</span>
             </DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
               Inspect technician repair notes and photographic evidence before closing the ticket.
@@ -1028,7 +1034,7 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <span className="text-[11px] font-semibold text-rose-400 flex items-center gap-1">
                     Initial Defect Photo
@@ -1056,12 +1062,12 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end items-center gap-3 pt-4 border-t border-slate-800">
+              <div className="flex flex-col-reverse sm:flex-row justify-end items-stretch sm:items-center gap-2 sm:gap-3 pt-4 border-t border-slate-800">
                 <Button
                   variant="outline"
                   disabled={verifying}
                   onClick={() => handleReopen((inspectTicket.work_order?.ID || inspectTicket.WorkOrder?.ID))}
-                  className="border-rose-500/30 text-rose-400 hover:bg-rose-500/10 text-xs flex items-center gap-1.5"
+                  className="w-full sm:w-auto border-rose-500/30 text-rose-400 hover:bg-rose-500/10 text-xs h-9 sm:h-8 flex items-center justify-center gap-1.5"
                 >
                   <RotateCcw className="w-3.5 h-3.5" /> Reject & Reopen Job
                 </Button>
@@ -1069,7 +1075,7 @@ export default function AdminDashboardPage() {
                 <Button
                   disabled={verifying}
                   onClick={() => handleVerify((inspectTicket.work_order?.ID || inspectTicket.WorkOrder?.ID))}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/20"
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-9 sm:h-8 flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20 font-semibold"
                 >
                   {verifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                   Approve & Close Incident
