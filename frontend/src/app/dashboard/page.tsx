@@ -289,29 +289,45 @@ export default function AdminDashboardPage() {
     return true;
   });
 
-  const CHART_COLORS = ['#6366F1', '#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#64748B'];
+  const CHART_COLORS = ['#6366F1', '#F59E0B', '#06B6D4', '#10B981'];
 
-  const ALL_SPECIALTIES = [
-    { key: 'HVAC / AC', match: (cat: string) => /hvac|air condition|cooling/i.test(cat) },
-    { key: 'Electrical', match: (cat: string) => /electric|light|power|socket|bulb/i.test(cat) },
-    { key: 'IT / PCs', match: (cat: string) => /computer|pc|workstation|lab pc/i.test(cat) || cat === 'IT' },
-    { key: 'Network / Wi-Fi', match: (cat: string) => /network|wi-fi|wifi|router|switch|ap/i.test(cat) },
-    { key: 'AV / Projectors', match: (cat: string) => /projector|display|screen|av|smart display/i.test(cat) },
-    { key: 'Plumbing', match: (cat: string) => /plumb|water|pipe|washroom|toilet|sink/i.test(cat) },
-    { key: 'Furniture', match: (cat: string) => /furn|chair|desk|table|bench|door/i.test(cat) },
-    { key: 'General', match: (cat: string) => /general|other/i.test(cat) },
+  const TRADE_SPECIALTIES_4 = [
+    { 
+      key: 'General Maintenance', 
+      label: 'General Maintenance', 
+      detail: 'Air Conditioning & General', 
+      match: (cat: string) => /general|other|air condition|hvac|cooling|furn|chair|desk|table|door/i.test(cat) || cat === 'General' 
+    },
+    { 
+      key: 'Electrical & Power', 
+      label: 'Electrical & Power', 
+      detail: 'Electrical & Power Systems', 
+      match: (cat: string) => /electric|light|power|socket|bulb/i.test(cat) || cat === 'Electrical' 
+    },
+    { 
+      key: 'Plumbing & Water', 
+      label: 'Plumbing & Water', 
+      detail: 'Plumbing & Water Fixtures', 
+      match: (cat: string) => /plumb|water|pipe|washroom|toilet|sink|leak/i.test(cat) || cat === 'Plumbing' 
+    },
+    { 
+      key: 'IT & Projectors', 
+      label: 'IT & Projectors', 
+      detail: 'IT Hardware, Network & Projectors', 
+      match: (cat: string) => /it|computer|pc|workstation|network|wifi|wi-fi|router|projector|display|screen|av/i.test(cat) || cat === 'IT' 
+    },
   ];
 
   const categoryChartData = useMemo(() => {
     // 1. Calculate live counts from current loaded tickets
     const incidentCounts: Record<string, number> = {};
-    ALL_SPECIALTIES.forEach((s) => { incidentCounts[s.key] = 0; });
+    TRADE_SPECIALTIES_4.forEach((s) => { incidentCounts[s.key] = 0; });
 
     if (incidents && incidents.length > 0) {
       incidents.forEach((inc: any) => {
         const cat = `${inc.equipment_category || ''} ${inc.custom_equipment_name || ''}`;
         let matched = false;
-        for (const spec of ALL_SPECIALTIES) {
+        for (const spec of TRADE_SPECIALTIES_4) {
           if (spec.match(cat)) {
             incidentCounts[spec.key]++;
             matched = true;
@@ -319,22 +335,26 @@ export default function AdminDashboardPage() {
           }
         }
         if (!matched) {
-          incidentCounts['General']++;
+          incidentCounts['General Maintenance']++;
         }
       });
     }
 
     // 2. Merge with backend analytics.category_stats if backend reported counts
-    return ALL_SPECIALTIES.map((spec) => {
+    return TRADE_SPECIALTIES_4.map((spec) => {
       let count = incidentCounts[spec.key] || 0;
       if (analytics?.category_stats && Array.isArray(analytics.category_stats)) {
-        const statMatch = analytics.category_stats.find((cs: any) => spec.match(cs.category || ''));
-        if (statMatch && typeof statMatch.count === 'number' && statMatch.count > count) {
-          count = statMatch.count;
-        }
+        analytics.category_stats.forEach((cs: any) => {
+          if (spec.match(cs.category || '')) {
+            if (typeof cs.count === 'number' && cs.count > count) {
+              count = cs.count;
+            }
+          }
+        });
       }
       return {
         category: spec.key,
+        detail: spec.detail,
         count,
       };
     });
@@ -817,22 +837,23 @@ export default function AdminDashboardPage() {
                   <CardTitle className="text-white text-base flex items-center gap-2">
                     <Layers className="w-4 h-4 text-indigo-400" /> Incident Distribution by Trade Category
                   </CardTitle>
-                  <CardDescription className="text-slate-400 text-xs">Volume of maintenance requests across all 8 campus specialties</CardDescription>
+                  <CardDescription className="text-slate-400 text-xs">Volume of maintenance requests across the 4 core technician trade specialties</CardDescription>
                 </CardHeader>
                 <CardContent className="h-72 sm:h-80 w-full min-w-0 p-2 sm:p-6 pt-2">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={categoryChartData} margin={{ top: 10, right: 10, left: -20, bottom: 45 }}>
+                    <BarChart data={categoryChartData} margin={{ top: 10, right: 10, left: -20, bottom: 28 }}>
                       <XAxis 
                         dataKey="category" 
                         stroke="#64748b" 
                         fontSize={11}
                         interval={0}
-                        angle={-30}
+                        angle={-10}
                         textAnchor="end"
                         tick={{ fill: '#94a3b8' }}
                       />
                       <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} tick={{ fill: '#94a3b8' }} />
                       <Tooltip
+                        formatter={(val: any, name: any, item: any) => [`${val} Tickets`, item?.payload?.detail ? `${item.payload.category} (${item.payload.detail})` : item?.payload?.category || name]}
                         contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
                       />
                       <Bar dataKey="count" radius={[4, 4, 0, 0]}>

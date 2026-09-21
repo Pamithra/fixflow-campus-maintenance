@@ -85,36 +85,20 @@ func GetAnalytics(c *gin.Context) {
 
 	specialties := []SpecialtyDef{
 		{
-			Name:    "HVAC / AC",
-			SQLCond: "(assets.category = 'HVAC' OR maintenance_requests.equipment_category ILIKE '%Air Condition%' OR maintenance_requests.equipment_category ILIKE '%HVAC%' OR maintenance_requests.equipment_category ILIKE '%Cooling%')",
+			Name:    "General Maintenance",
+			SQLCond: "(assets.category = 'General' OR assets.category = 'HVAC' OR maintenance_requests.equipment_category ILIKE '%Air Condition%' OR maintenance_requests.equipment_category ILIKE '%HVAC%' OR maintenance_requests.equipment_category ILIKE '%Cooling%' OR maintenance_requests.equipment_category ILIKE '%Furn%' OR maintenance_requests.equipment_category ILIKE '%Chair%' OR maintenance_requests.equipment_category ILIKE '%Desk%' OR maintenance_requests.equipment_category ILIKE '%Other%' OR (assets.category IS NULL AND (maintenance_requests.equipment_category IS NULL OR maintenance_requests.equipment_category = '' OR maintenance_requests.equipment_category = 'General')))",
 		},
 		{
-			Name:    "Electrical",
-			SQLCond: "(assets.category = 'Electrical' OR maintenance_requests.equipment_category ILIKE '%Electric%' OR maintenance_requests.equipment_category ILIKE '%Light%' OR maintenance_requests.equipment_category ILIKE '%Power%')",
+			Name:    "Electrical & Power",
+			SQLCond: "(assets.category = 'Electrical' OR maintenance_requests.equipment_category ILIKE '%Electric%' OR maintenance_requests.equipment_category ILIKE '%Light%' OR maintenance_requests.equipment_category ILIKE '%Power%' OR maintenance_requests.equipment_category ILIKE '%Socket%' OR maintenance_requests.equipment_category ILIKE '%Bulb%')",
 		},
 		{
-			Name:    "IT / PCs",
-			SQLCond: "(assets.category = 'IT' OR maintenance_requests.equipment_category ILIKE '%Computer%' OR maintenance_requests.equipment_category ILIKE '%PC%' OR maintenance_requests.equipment_category ILIKE '%Workstation%')",
+			Name:    "Plumbing & Water",
+			SQLCond: "(assets.category = 'Plumbing' OR maintenance_requests.equipment_category ILIKE '%Plumb%' OR maintenance_requests.equipment_category ILIKE '%Washroom%' OR maintenance_requests.equipment_category ILIKE '%Water%' OR maintenance_requests.equipment_category ILIKE '%Pipe%' OR maintenance_requests.equipment_category ILIKE '%Toilet%' OR maintenance_requests.equipment_category ILIKE '%Sink%')",
 		},
 		{
-			Name:    "Network / Wi-Fi",
-			SQLCond: "(assets.category = 'Network' OR maintenance_requests.equipment_category ILIKE '%Network%' OR maintenance_requests.equipment_category ILIKE '%Wi-Fi%' OR maintenance_requests.equipment_category ILIKE '%Wifi%')",
-		},
-		{
-			Name:    "AV / Projectors",
-			SQLCond: "(assets.category = 'AV' OR maintenance_requests.equipment_category ILIKE '%Projector%' OR maintenance_requests.equipment_category ILIKE '%Display%' OR maintenance_requests.equipment_category ILIKE '%Screen%')",
-		},
-		{
-			Name:    "Plumbing",
-			SQLCond: "(assets.category = 'Plumbing' OR maintenance_requests.equipment_category ILIKE '%Plumb%' OR maintenance_requests.equipment_category ILIKE '%Washroom%' OR maintenance_requests.equipment_category ILIKE '%Water%' OR maintenance_requests.equipment_category ILIKE '%Pipe%')",
-		},
-		{
-			Name:    "Furniture",
-			SQLCond: "(assets.category = 'Furniture' OR maintenance_requests.equipment_category ILIKE '%Furn%' OR maintenance_requests.equipment_category ILIKE '%Chair%' OR maintenance_requests.equipment_category ILIKE '%Desk%' OR maintenance_requests.equipment_category ILIKE '%Door%')",
-		},
-		{
-			Name:    "General",
-			SQLCond: "(assets.category = 'General' OR maintenance_requests.equipment_category ILIKE '%Other%' OR (assets.category IS NULL AND (maintenance_requests.equipment_category IS NULL OR maintenance_requests.equipment_category = '' OR maintenance_requests.equipment_category = 'General')))",
+			Name:    "IT & Projectors",
+			SQLCond: "(assets.category = 'IT' OR assets.category = 'AV' OR assets.category = 'Network' OR maintenance_requests.equipment_category ILIKE '%Computer%' OR maintenance_requests.equipment_category ILIKE '%PC%' OR maintenance_requests.equipment_category ILIKE '%Workstation%' OR maintenance_requests.equipment_category ILIKE '%Projector%' OR maintenance_requests.equipment_category ILIKE '%Display%' OR maintenance_requests.equipment_category ILIKE '%Screen%' OR maintenance_requests.equipment_category ILIKE '%Network%' OR maintenance_requests.equipment_category ILIKE '%Wi-Fi%' OR maintenance_requests.equipment_category ILIKE '%Wifi%')",
 		},
 	}
 

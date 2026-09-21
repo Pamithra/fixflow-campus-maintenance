@@ -26,11 +26,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/context/AuthContext';
+import Navbar from '@/components/Navbar';
 import api from '@/lib/api';
 
 export default function HomePage() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
+
+  // If user is already authenticated and visits root URL, route directly to workspace
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (user.role === 'ADMIN') {
+        router.replace('/dashboard');
+      } else if (user.role === 'TECHNICIAN') {
+        router.replace('/tasks');
+      } else {
+        router.replace('/report');
+      }
+    }
+  }, [user, authLoading, router]);
 
   // Pre-warm cloud backend in background on initial landing
   useEffect(() => {
@@ -220,63 +234,7 @@ export default function HomePage() {
       <div className="absolute bottom-10 left-10 w-[400px] h-[350px] bg-emerald-600/10 rounded-full blur-[128px] pointer-events-none" />
 
       {/* Navigation Bar */}
-      <nav className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <span className="font-extrabold text-xl tracking-tight text-white">
-              Fix<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Flow</span>
-            </span>
-          </div>
-
-          <div className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-400">
-            <a href="#how-it-works" className="hover:text-white transition">How It Works</a>
-            <a href="#portals" className="hover:text-white transition">Workspaces</a>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {user ? (
-              <>
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  <span className="text-slate-300 font-medium">{user.full_name}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 uppercase font-bold">
-                    {user.role}
-                  </span>
-                </div>
-                <Link href={primaryReportHref}>
-                  <Button size="sm" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs shadow-lg shadow-indigo-500/20 font-medium">
-                    {primaryButtonLabel} <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                  </Button>
-                </Link>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={logout} 
-                  className="border-slate-800 hover:bg-slate-900 text-slate-300 hover:text-white text-xs"
-                >
-                  Logout
-                </Button>
-              </>
-            ) : (
-              <>
-                <Link href="/login">
-                  <Button variant="outline" size="sm" className="border-slate-800 hover:bg-slate-900 text-slate-300 hover:text-white text-xs">
-                    Log In
-                  </Button>
-                </Link>
-                <Link href="/signup">
-                  <Button size="sm" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs shadow-lg shadow-indigo-500/20 font-medium">
-                    Sign Up
-                  </Button>
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-6 pt-16 sm:pt-24 pb-16 text-center space-y-6 relative z-10">
