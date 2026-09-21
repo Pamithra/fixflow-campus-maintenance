@@ -120,7 +120,7 @@ function ReportContent() {
     }
   }, [tabParam, rateTicketParam]);
 
-  // 1. Enforce authentication & redirect handling (Admin redirected to dashboard)
+  // 1. Enforce authentication & redirect handling
   useEffect(() => {
     if (typeof window !== 'undefined' && sessionStorage.getItem('fixflow_logging_out') === 'true') {
       return;
@@ -129,8 +129,6 @@ function ReportContent() {
       if (!user) {
         const currentPath = window.location.pathname + window.location.search;
         router.push(`/signup?redirect=${encodeURIComponent(currentPath)}`);
-      } else if (user.role === 'ADMIN') {
-        router.push('/dashboard');
       }
     }
   }, [user, authLoading, router]);
@@ -621,10 +619,10 @@ function ReportContent() {
     }
   };
 
-  if (authLoading || !user || user.role === 'ADMIN') {
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400 text-xs">
-        <Loader2 className="w-5 h-5 animate-spin mr-2" /> {user?.role === 'ADMIN' ? 'Redirecting to Command Dashboard...' : 'Loading FixFlow Portal...'}
+        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading FixFlow Portal...
       </div>
     );
   }

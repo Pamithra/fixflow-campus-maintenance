@@ -47,6 +47,21 @@ function SignupForm() {
     api.get('/health').catch(() => {});
   }, []);
 
+  // If user is already logged in, immediately forward them to their destination without stopping on signup
+  React.useEffect(() => {
+    if (user) {
+      router.replace(redirectUrl || (user.role === 'ADMIN' ? '/dashboard' : user.role === 'TECHNICIAN' ? '/tasks' : '/report'));
+    }
+  }, [user, redirectUrl, router]);
+
+  if (user) {
+    return (
+      <div className="text-white text-xs flex items-center justify-center gap-2 py-12">
+        <Loader2 className="w-4 h-4 animate-spin text-indigo-400" /> Redirecting to FixFlow...
+      </div>
+    );
+  }
+
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -140,30 +155,9 @@ function SignupForm() {
         </div>
       )}
 
-      {/* Already Logged In Quick Proceed Box */}
-      {user && (
-        <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 text-xs space-y-2.5 animate-in fade-in">
-          <div className="flex items-center gap-2 font-semibold text-emerald-300">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-            <span>You are already signed in as <strong className="text-white">{user.full_name}</strong></span>
-          </div>
-          <p className="text-slate-300 text-[11px] leading-relaxed">
-            You can proceed directly with this account, or fill the form below to create a different account.
-          </p>
-          <Button
-            type="button"
-            onClick={() => router.push(redirectUrl || (user.role === 'ADMIN' ? '/dashboard' : user.role === 'TECHNICIAN' ? '/tasks' : '/report'))}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs h-8 flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20"
-          >
-            <span>Proceed to {redirectUrl ? 'Report Issue' : 'Dashboard'}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      )}
-
       {/* Auth Card */}
       <Card className="bg-slate-900/80 border-slate-800 backdrop-blur-xl shadow-2xl">
-        <CardHeader className="space-y-2 pb-3">
+        <CardHeader className="space-y-2 pb-2">
           <CardTitle className="text-lg text-white flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-indigo-400" /> Create a New Account
           </CardTitle>
@@ -171,6 +165,19 @@ function SignupForm() {
             Join FixFlow to report campus issues, track repairs, and receive maintenance updates.
           </CardDescription>
         </CardHeader>
+
+        {/* Quick Log In Switcher at TOP (Zero Scrolling) */}
+        <div className="px-6 pb-2">
+          <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between text-xs">
+            <span className="text-slate-300">Already have an account?</span>
+            <Link 
+              href={`/login${redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : ''}`}
+              className="text-indigo-400 hover:text-indigo-300 font-semibold px-3 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 hover:bg-indigo-500/20 transition flex items-center gap-1 shadow-sm"
+            >
+              Log In <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
 
         <CardContent className="space-y-4 pt-1">
           {error && (

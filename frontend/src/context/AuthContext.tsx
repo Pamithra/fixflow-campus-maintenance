@@ -54,8 +54,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('fixflow_user', JSON.stringify(newUser));
 
     // If a specific redirect destination was requested (e.g. scanned QR equipment report), prioritize it
-    if (redirectUrl && !redirectUrl.startsWith('/login')) {
-      router.push(redirectUrl);
+    let target = redirectUrl;
+    if (target && target.includes('redirect=')) {
+      try {
+        const dummy = new URL(target, 'http://dummy.local');
+        const inner = dummy.searchParams.get('redirect');
+        if (inner) target = decodeURIComponent(inner);
+      } catch (e) {}
+    }
+
+    if (target && !target.startsWith('/login') && !target.startsWith('/signup')) {
+      router.push(target);
       return;
     }
 
