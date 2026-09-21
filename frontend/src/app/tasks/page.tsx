@@ -8,6 +8,7 @@ import {
   Camera, 
   CheckCircle2, 
   Clock, 
+  Eye,
   Hourglass, 
   Loader2, 
   MapPin, 
@@ -31,7 +32,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Navbar from '@/components/Navbar';
-import { resolveImageUrl, compressImageToDataUrl } from '@/lib/utils';
+import PhotoPreviewModal, { PhotoPreviewState } from '@/components/PhotoPreviewModal';
+import { resolveImageUrl, compressImageToDataUrl, getCategoryFallbackPhoto } from '@/lib/utils';
 
 const getBuildingDisplayName = (buildingName?: string, roomNumber?: string) => {
   if (buildingName && buildingName !== 'Main Building' && !buildingName.includes('Faculty of')) {
@@ -106,6 +108,7 @@ export default function TechnicianTasksPage() {
   const [afterImagePreview, setAfterImagePreview] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [successToast, setSuccessToast] = useState('');
+  const [previewPhoto, setPreviewPhoto] = useState<PhotoPreviewState | null>(null);
 
   // Role Guard & Data Loader
   useEffect(() => {
@@ -621,24 +624,29 @@ export default function TechnicianTasksPage() {
                         {req?.image_url && (
                           <div className="space-y-1">
                             <span className="text-[10px] text-slate-400 font-semibold uppercase">Initial Problem Photo</span>
-                            <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-700 bg-slate-900/90 cursor-pointer relative group flex items-center justify-center" onClick={() => window.open(resolveImageUrl(req.image_url), '_blank')}>
+                            <div 
+                              className="w-24 h-24 rounded-lg overflow-hidden border border-slate-700 bg-slate-900/90 cursor-pointer relative group flex items-center justify-center" 
+                              onClick={() => setPreviewPhoto({
+                                url: resolveImageUrl(req.image_url),
+                                title: `Problem Photo - Ticket #${req.ticket_number || ''}`,
+                                subtitle: `${req.equipment_category || 'Defect'} ${req.custom_equipment_name ? '• ' + req.custom_equipment_name : ''}`,
+                                category: req.equipment_category,
+                                equipmentName: req.custom_equipment_name
+                              })}
+                            >
                               <img 
                                 src={resolveImageUrl(req.image_url)} 
                                 alt="Initial Defect" 
                                 className="w-full h-full object-cover group-hover:scale-105 transition" 
                                 onError={(e) => { 
-                                  const el = e.target as HTMLElement;
-                                  el.style.display = 'none';
-                                  const parent = el.parentElement;
-                                  if (parent) {
-                                    const fb = parent.querySelector('.photo-error-fallback');
-                                    if (fb) (fb as HTMLElement).style.display = 'flex';
+                                  const fallback = getCategoryFallbackPhoto(req.equipment_category, req.custom_equipment_name);
+                                  if (e.currentTarget.src !== fallback) {
+                                    e.currentTarget.src = fallback;
                                   }
                                 }}
                               />
-                              <div className="photo-error-fallback hidden flex-col items-center justify-center p-2 text-center text-slate-400 text-[10px] space-y-1">
-                                <ImageIcon className="w-6 h-6 text-indigo-400 opacity-80" />
-                                <span className="font-semibold text-[9px] text-slate-300">Tap to View</span>
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[10px] font-semibold gap-1">
+                                <Eye className="w-3.5 h-3.5" /> Enlarge
                               </div>
                             </div>
                           </div>
@@ -768,24 +776,29 @@ export default function TechnicianTasksPage() {
                             {wo.after_image_url && (
                               <div className="pt-1">
                                 <span className="text-[10px] text-slate-400 font-semibold uppercase">Photo of Fixed Equipment:</span>
-                                <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 bg-slate-900/90 mt-1 cursor-pointer relative group flex items-center justify-center" onClick={() => window.open(resolveImageUrl(wo.after_image_url), '_blank')}>
+                                <div 
+                                  className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 bg-slate-900/90 mt-1 cursor-pointer relative group flex items-center justify-center" 
+                                  onClick={() => setPreviewPhoto({
+                                    url: resolveImageUrl(wo.after_image_url),
+                                    title: `Fixed Equipment Photo - Ticket #${req?.ticket_number || ''}`,
+                                    subtitle: `Technician: ${wo.Technician?.full_name || wo.technician?.full_name || user?.full_name || 'Assigned Technician'}`,
+                                    category: req?.equipment_category,
+                                    equipmentName: req?.custom_equipment_name
+                                  })}
+                                >
                                   <img 
                                     src={resolveImageUrl(wo.after_image_url)} 
                                     alt="Repaired Evidence" 
                                     className="w-full h-full object-cover group-hover:scale-105 transition" 
                                     onError={(e) => { 
-                                      const el = e.target as HTMLElement;
-                                      el.style.display = 'none';
-                                      const parent = el.parentElement;
-                                      if (parent) {
-                                        const fb = parent.querySelector('.photo-error-fallback');
-                                        if (fb) (fb as HTMLElement).style.display = 'flex';
+                                      const fallback = getCategoryFallbackPhoto(req?.equipment_category, req?.custom_equipment_name);
+                                      if (e.currentTarget.src !== fallback) {
+                                        e.currentTarget.src = fallback;
                                       }
                                     }}
                                   />
-                                  <div className="photo-error-fallback hidden flex-col items-center justify-center p-1 text-center text-slate-400 text-[9px]">
-                                    <ImageIcon className="w-5 h-5 text-indigo-400 opacity-80" />
-                                    <span>View Photo</span>
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[9px] font-semibold gap-1">
+                                    <Eye className="w-3 h-3" /> Enlarge
                                   </div>
                                 </div>
                               </div>
@@ -806,24 +819,29 @@ export default function TechnicianTasksPage() {
                             {wo.after_image_url && (
                               <div className="pt-1">
                                 <span className="text-[10px] text-slate-400 font-semibold uppercase">Photo of Fixed Equipment:</span>
-                                <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 bg-slate-900/90 mt-1 cursor-pointer relative group flex items-center justify-center" onClick={() => window.open(resolveImageUrl(wo.after_image_url), '_blank')}>
+                                <div 
+                                  className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 bg-slate-900/90 mt-1 cursor-pointer relative group flex items-center justify-center" 
+                                  onClick={() => setPreviewPhoto({
+                                    url: resolveImageUrl(wo.after_image_url),
+                                    title: `Fixed Equipment Photo - Ticket #${req?.ticket_number || ''}`,
+                                    subtitle: `Final Verified Repair • Ticket #${req?.ticket_number || ''}`,
+                                    category: req?.equipment_category,
+                                    equipmentName: req?.custom_equipment_name
+                                  })}
+                                >
                                   <img 
                                     src={resolveImageUrl(wo.after_image_url)} 
                                     alt="Repaired Evidence" 
                                     className="w-full h-full object-cover group-hover:scale-105 transition" 
                                     onError={(e) => { 
-                                      const el = e.target as HTMLElement;
-                                      el.style.display = 'none';
-                                      const parent = el.parentElement;
-                                      if (parent) {
-                                        const fb = parent.querySelector('.photo-error-fallback');
-                                        if (fb) (fb as HTMLElement).style.display = 'flex';
+                                      const fallback = getCategoryFallbackPhoto(req?.equipment_category, req?.custom_equipment_name);
+                                      if (e.currentTarget.src !== fallback) {
+                                        e.currentTarget.src = fallback;
                                       }
                                     }}
                                   />
-                                  <div className="photo-error-fallback hidden flex-col items-center justify-center p-1 text-center text-slate-400 text-[9px]">
-                                    <ImageIcon className="w-5 h-5 text-indigo-400 opacity-80" />
-                                    <span>View Photo</span>
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[9px] font-semibold gap-1">
+                                    <Eye className="w-3 h-3" /> Enlarge
                                   </div>
                                 </div>
                               </div>
@@ -971,6 +989,9 @@ export default function TechnicianTasksPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Photo Enlarge Pop-up Modal */}
+      <PhotoPreviewModal photo={previewPhoto} onClose={() => setPreviewPhoto(null)} />
     </div>
   );
 }

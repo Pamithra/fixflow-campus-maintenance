@@ -9,6 +9,7 @@ import {
   Camera, 
   CheckCircle2, 
   Clock, 
+  Eye,
   Flame, 
   GraduationCap, 
   History, 
@@ -41,7 +42,8 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import Navbar from '@/components/Navbar';
-import { resolveImageUrl, compressImageToDataUrl } from '@/lib/utils';
+import PhotoPreviewModal, { PhotoPreviewState } from '@/components/PhotoPreviewModal';
+import { resolveImageUrl, compressImageToDataUrl, getCategoryFallbackPhoto } from '@/lib/utils';
 
 const EQUIPMENT_CATEGORIES = [
   { id: 'Computers & Workstations', label: 'Computers & Workstations', icon: Monitor },
@@ -108,6 +110,7 @@ function ReportContent() {
   const [selectedStars, setSelectedStars] = useState(5);
   const [feedbackNotes, setFeedbackNotes] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [previewPhoto, setPreviewPhoto] = useState<PhotoPreviewState | null>(null);
 
   // Tab State
   const tabParam = searchParams.get('tab');
@@ -1198,13 +1201,30 @@ function ReportContent() {
                           {t.image_url && (
                             <div className="space-y-1">
                               <span className="text-[10px] text-slate-400 font-semibold uppercase">Attached Problem Photo</span>
-                              <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-800 cursor-pointer" onClick={() => window.open(resolveImageUrl(t.image_url), '_blank')}>
+                              <div 
+                                className="w-20 h-20 rounded-lg overflow-hidden border border-slate-800 cursor-pointer relative group bg-slate-950 flex items-center justify-center" 
+                                onClick={() => setPreviewPhoto({
+                                  url: resolveImageUrl(t.image_url),
+                                  title: `Reported Problem Photo - Ticket #${t.ticket_number}`,
+                                  subtitle: `${t.equipment_category || 'Equipment'} • Room ${t.Room?.room_number || t.room?.room_number || 'General'}`,
+                                  category: t.equipment_category,
+                                  equipmentName: t.custom_equipment_name
+                                })}
+                              >
                                 <img 
                                   src={resolveImageUrl(t.image_url)} 
                                   alt="Reported Defect" 
-                                  className="w-full h-full object-cover hover:scale-105 transition" 
-                                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition" 
+                                  onError={(e) => { 
+                                    const fallback = getCategoryFallbackPhoto(t.equipment_category, t.custom_equipment_name);
+                                    if (e.currentTarget.src !== fallback) {
+                                      e.currentTarget.src = fallback;
+                                    }
+                                  }}
                                 />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[9px] font-medium gap-1">
+                                  <Eye className="w-3 h-3" /> View
+                                </div>
                               </div>
                             </div>
                           )}
@@ -1312,6 +1332,9 @@ function ReportContent() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Photo Enlarge Pop-up Modal */}
+      <PhotoPreviewModal photo={previewPhoto} onClose={() => setPreviewPhoto(null)} />
     </div>
   );
 }

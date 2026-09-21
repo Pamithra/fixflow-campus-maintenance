@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -39,7 +39,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 import Navbar from '@/components/Navbar';
-import { resolveImageUrl } from '@/lib/utils';
+import PhotoPreviewModal, { PhotoPreviewState } from '@/components/PhotoPreviewModal';
+import { resolveImageUrl, getCategoryFallbackPhoto } from '@/lib/utils';
 
 const getBuildingDisplayName = (buildingName?: string, roomNumber?: string) => {
   if (buildingName && buildingName !== 'Main Building' && !buildingName.includes('Faculty of')) {
@@ -71,6 +72,7 @@ export default function AdminDashboardPage() {
   const [inspectTicket, setInspectTicket] = useState<any | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [successToast, setSuccessToast] = useState('');
+  const [previewPhoto, setPreviewPhoto] = useState<PhotoPreviewState | null>(null);
 
   // Filter State
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
@@ -288,6 +290,55 @@ export default function AdminDashboardPage() {
   });
 
   const CHART_COLORS = ['#6366F1', '#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#64748B'];
+
+  const ALL_SPECIALTIES = [
+    { key: 'HVAC / AC', match: (cat: string) => /hvac|air condition|cooling/i.test(cat) },
+    { key: 'Electrical', match: (cat: string) => /electric|light|power|socket|bulb/i.test(cat) },
+    { key: 'IT / PCs', match: (cat: string) => /computer|pc|workstation|lab pc/i.test(cat) || cat === 'IT' },
+    { key: 'Network / Wi-Fi', match: (cat: string) => /network|wi-fi|wifi|router|switch|ap/i.test(cat) },
+    { key: 'AV / Projectors', match: (cat: string) => /projector|display|screen|av|smart display/i.test(cat) },
+    { key: 'Plumbing', match: (cat: string) => /plumb|water|pipe|washroom|toilet|sink/i.test(cat) },
+    { key: 'Furniture', match: (cat: string) => /furn|chair|desk|table|bench|door/i.test(cat) },
+    { key: 'General', match: (cat: string) => /general|other/i.test(cat) },
+  ];
+
+  const categoryChartData = useMemo(() => {
+    // 1. Calculate live counts from current loaded tickets
+    const incidentCounts: Record<string, number> = {};
+    ALL_SPECIALTIES.forEach((s) => { incidentCounts[s.key] = 0; });
+
+    if (incidents && incidents.length > 0) {
+      incidents.forEach((inc: any) => {
+        const cat = `${inc.equipment_category || ''} ${inc.custom_equipment_name || ''}`;
+        let matched = false;
+        for (const spec of ALL_SPECIALTIES) {
+          if (spec.match(cat)) {
+            incidentCounts[spec.key]++;
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          incidentCounts['General']++;
+        }
+      });
+    }
+
+    // 2. Merge with backend analytics.category_stats if backend reported counts
+    return ALL_SPECIALTIES.map((spec) => {
+      let count = incidentCounts[spec.key] || 0;
+      if (analytics?.category_stats && Array.isArray(analytics.category_stats)) {
+        const statMatch = analytics.category_stats.find((cs: any) => spec.match(cs.category || ''));
+        if (statMatch && typeof statMatch.count === 'number' && statMatch.count > count) {
+          count = statMatch.count;
+        }
+      }
+      return {
+        category: spec.key,
+        count,
+      };
+    });
+  }, [incidents, analytics]);
 
   if (authLoading || !user || user.role !== 'ADMIN') {
     return (
@@ -719,13 +770,30 @@ export default function AdminDashboardPage() {
                                 </p>
                               )}
                               {wo.after_image_url && (
-                                <div className="w-16 h-16 rounded-lg overflow-hidden border border-slate-700 mt-1 cursor-pointer" onClick={() => window.open(resolveImageUrl(wo.after_image_url), '_blank')}>
+                                <div 
+                                  className="w-16 h-16 rounded-lg overflow-hidden border border-slate-700 mt-1 cursor-pointer bg-slate-950 relative group flex items-center justify-center" 
+                                  onClick={() => setPreviewPhoto({
+                                    url: resolveImageUrl(wo.after_image_url),
+                                    title: `Repaired Equipment - Ticket #${t.ticket_number}`,
+                                    subtitle: `${t.equipment_category || 'Equipment'} • Room ${t.Room?.room_number || t.room?.room_number || 'General'}`,
+                                    category: t.equipment_category,
+                                    equipmentName: t.custom_equipment_name
+                                  })}
+                                >
                                   <img 
                                     src={resolveImageUrl(wo.after_image_url)} 
                                     alt="Repaired Evidence" 
-                                    className="w-full h-full object-cover hover:scale-105 transition"
-                                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition"
+                                    onError={(e) => {
+                                      const fallback = getCategoryFallbackPhoto(t.equipment_category, t.custom_equipment_name);
+                                      if (e.currentTarget.src !== fallback) {
+                                        e.currentTarget.src = fallback;
+                                      }
+                                    }}
                                   />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[9px] font-semibold">
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -752,32 +820,28 @@ export default function AdminDashboardPage() {
                   <CardDescription className="text-slate-400 text-xs">Volume of maintenance requests across all 8 campus specialties</CardDescription>
                 </CardHeader>
                 <CardContent className="h-72 sm:h-80 w-full min-w-0 p-2 sm:p-6 pt-2">
-                  {analytics?.category_stats && analytics.category_stats.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={analytics.category_stats} margin={{ top: 10, right: 10, left: -20, bottom: 45 }}>
-                        <XAxis 
-                          dataKey="category" 
-                          stroke="#64748b" 
-                          fontSize={11}
-                          interval={0}
-                          angle={-30}
-                          textAnchor="end"
-                          tick={{ fill: '#94a3b8' }}
-                        />
-                        <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} tick={{ fill: '#94a3b8' }} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                        />
-                        <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                          {analytics.category_stats.map((_: any, idx: number) => (
-                            <Cell key={`cell-${idx}`} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-slate-500 text-xs">No category data yet</div>
-                  )}
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={categoryChartData} margin={{ top: 10, right: 10, left: -20, bottom: 45 }}>
+                      <XAxis 
+                        dataKey="category" 
+                        stroke="#64748b" 
+                        fontSize={11}
+                        interval={0}
+                        angle={-30}
+                        textAnchor="end"
+                        tick={{ fill: '#94a3b8' }}
+                      />
+                      <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} tick={{ fill: '#94a3b8' }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                      />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                        {categoryChartData.map((_: any, idx: number) => (
+                          <Cell key={`cell-${idx}`} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
 
@@ -1018,25 +1082,33 @@ export default function AdminDashboardPage() {
                   <span className="text-[11px] font-semibold text-rose-400 flex items-center gap-1">
                     Initial Defect Photo
                   </span>
-                  <div className="w-full h-44 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex items-center justify-center relative">
+                  <div className="w-full h-44 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex items-center justify-center relative group">
                     {inspectTicket.image_url ? (
-                      <img 
-                        src={resolveImageUrl(inspectTicket.image_url)} 
-                        alt="Initial Defect" 
-                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition"
-                        onClick={() => window.open(resolveImageUrl(inspectTicket.image_url), '_blank')}
-                        onError={(e) => {
-                          const target = e.target as HTMLElement;
-                          target.style.display = 'none';
-                          const parent = target.parentElement;
-                          if (parent && !parent.querySelector('.img-fallback')) {
-                            const span = document.createElement('span');
-                            span.className = 'img-fallback text-xs text-slate-500 flex items-center gap-1.5 p-2 text-center';
-                            span.innerText = '📷 Photo unavailable or offline';
-                            parent.appendChild(span);
-                          }
-                        }}
-                      />
+                      <>
+                        <img 
+                          src={resolveImageUrl(inspectTicket.image_url)} 
+                          alt="Initial Defect" 
+                          className="w-full h-full object-cover cursor-pointer hover:scale-105 transition"
+                          onClick={() => setPreviewPhoto({
+                            url: resolveImageUrl(inspectTicket.image_url),
+                            title: `Initial Defect Photo - Ticket #${inspectTicket.ticket_number}`,
+                            subtitle: `${inspectTicket.equipment_category || 'Equipment'} • Room ${inspectTicket.Room?.room_number || inspectTicket.room?.room_number || 'General'}`,
+                            category: inspectTicket.equipment_category,
+                            equipmentName: inspectTicket.custom_equipment_name
+                          })}
+                          onError={(e) => {
+                            const fallback = getCategoryFallbackPhoto(inspectTicket.equipment_category, inspectTicket.custom_equipment_name);
+                            if (e.currentTarget.src !== fallback) {
+                              e.currentTarget.src = fallback;
+                            }
+                          }}
+                        />
+                        <div 
+                          className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold gap-1.5 cursor-pointer pointer-events-none"
+                        >
+                          <Eye className="w-4 h-4" /> Click to enlarge
+                        </div>
+                      </>
                     ) : (
                       <span className="text-xs text-slate-600">No before photo uploaded</span>
                     )}
@@ -1047,25 +1119,33 @@ export default function AdminDashboardPage() {
                   <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
                     Repaired Completion Photo
                   </span>
-                  <div className="w-full h-44 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex items-center justify-center relative">
+                  <div className="w-full h-44 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex items-center justify-center relative group">
                     {(inspectTicket.work_order?.after_image_url || inspectTicket.WorkOrder?.after_image_url) ? (
-                      <img 
-                        src={resolveImageUrl(inspectTicket.work_order?.after_image_url || inspectTicket.WorkOrder?.after_image_url)} 
-                        alt="Repaired Completion" 
-                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition"
-                        onClick={() => window.open(resolveImageUrl(inspectTicket.work_order?.after_image_url || inspectTicket.WorkOrder?.after_image_url), '_blank')}
-                        onError={(e) => {
-                          const target = e.target as HTMLElement;
-                          target.style.display = 'none';
-                          const parent = target.parentElement;
-                          if (parent && !parent.querySelector('.img-fallback')) {
-                            const span = document.createElement('span');
-                            span.className = 'img-fallback text-xs text-slate-500 flex items-center gap-1.5 p-2 text-center';
-                            span.innerText = '📷 Photo unavailable or offline';
-                            parent.appendChild(span);
-                          }
-                        }}
-                      />
+                      <>
+                        <img 
+                          src={resolveImageUrl(inspectTicket.work_order?.after_image_url || inspectTicket.WorkOrder?.after_image_url)} 
+                          alt="Repaired Completion" 
+                          className="w-full h-full object-cover cursor-pointer hover:scale-105 transition"
+                          onClick={() => setPreviewPhoto({
+                            url: resolveImageUrl(inspectTicket.work_order?.after_image_url || inspectTicket.WorkOrder?.after_image_url),
+                            title: `Repaired Completion Photo - Ticket #${inspectTicket.ticket_number}`,
+                            subtitle: `Verified Fix for ${inspectTicket.equipment_category || 'Equipment'}`,
+                            category: inspectTicket.equipment_category,
+                            equipmentName: inspectTicket.custom_equipment_name
+                          })}
+                          onError={(e) => {
+                            const fallback = getCategoryFallbackPhoto(inspectTicket.equipment_category, inspectTicket.custom_equipment_name);
+                            if (e.currentTarget.src !== fallback) {
+                              e.currentTarget.src = fallback;
+                            }
+                          }}
+                        />
+                        <div 
+                          className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold gap-1.5 cursor-pointer pointer-events-none"
+                        >
+                          <Eye className="w-4 h-4" /> Click to enlarge
+                        </div>
+                      </>
                     ) : (
                       <span className="text-xs text-slate-600">No completion photo uploaded</span>
                     )}
@@ -1096,6 +1176,9 @@ export default function AdminDashboardPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Photo Enlarge Pop-up Modal */}
+      <PhotoPreviewModal photo={previewPhoto} onClose={() => setPreviewPhoto(null)} />
     </div>
   );
-}
+}
