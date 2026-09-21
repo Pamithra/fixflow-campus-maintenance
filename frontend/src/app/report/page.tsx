@@ -120,12 +120,30 @@ function ReportContent() {
     }
   }, [tabParam, rateTicketParam]);
 
-  // 1. Enforce authentication & redirect handling
+  // 1. Enforce authentication & QR redirect handling
   useEffect(() => {
     if (typeof window !== 'undefined' && sessionStorage.getItem('fixflow_logging_out') === 'true') {
       return;
     }
     if (!authLoading) {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const isQRScan = params.has('tag') || params.has('category') || params.has('room') || params.has('floor');
+        const isFromAuth = params.get('authed') === '1' || sessionStorage.getItem('fixflow_qr_authed') === 'true';
+
+        // Fresh QR scan with equipment details must ALWAYS navigate to /signup first
+        if (isQRScan && !isFromAuth) {
+          params.set('authed', '1');
+          const targetPath = `${window.location.pathname}?${params.toString()}`;
+          router.replace(`/signup?redirect=${encodeURIComponent(targetPath)}`);
+          return;
+        }
+
+        if (isQRScan && isFromAuth) {
+          sessionStorage.setItem('fixflow_qr_authed', 'true');
+        }
+      }
+
       if (!user) {
         const currentPath = window.location.pathname + window.location.search;
         router.push(`/signup?redirect=${encodeURIComponent(currentPath)}`);

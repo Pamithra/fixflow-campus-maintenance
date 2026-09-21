@@ -85,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     try {
       sessionStorage.setItem('fixflow_logging_out', 'true');
+      sessionStorage.removeItem('fixflow_qr_authed');
     } catch (e) {}
     localStorage.removeItem('fixflow_token');
     localStorage.removeItem('fixflow_user');

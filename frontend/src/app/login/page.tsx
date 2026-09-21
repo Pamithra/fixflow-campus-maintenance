@@ -37,13 +37,6 @@ function LoginForm() {
     }
   }, [modeParam, redirectUrl, router]);
 
-  // If user is already logged in, immediately forward them to their destination without stopping on login
-  useEffect(() => {
-    if (user) {
-      router.replace(redirectUrl || (user.role === 'ADMIN' ? '/dashboard' : user.role === 'TECHNICIAN' ? '/tasks' : '/report'));
-    }
-  }, [user, redirectUrl, router]);
-
   // Log In Form State
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');

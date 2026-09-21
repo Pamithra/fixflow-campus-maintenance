@@ -138,22 +138,16 @@ export default function HomePage() {
           const redirectParam = parsedUrl.searchParams.get('redirect');
           if (redirectParam) {
             const decodedTarget = decodeURIComponent(redirectParam);
-            if (user) {
-              router.push(decodedTarget);
-            } else {
-              router.push(`/signup?redirect=${encodeURIComponent(decodedTarget)}`);
-            }
+            const target = decodedTarget.includes('authed=1') ? decodedTarget : `${decodedTarget}${decodedTarget.includes('?') ? '&' : '?'}authed=1`;
+            router.push(`/signup?redirect=${encodeURIComponent(target)}`);
             return;
           }
 
           // Case B: Direct /report link with query parameters
           if (parsedUrl.pathname.startsWith('/report')) {
             const reportPath = parsedUrl.pathname + parsedUrl.search;
-            if (user) {
-              router.push(reportPath);
-            } else {
-              router.push(`/signup?redirect=${encodeURIComponent(reportPath)}`);
-            }
+            const target = reportPath.includes('authed=1') ? reportPath : `${reportPath}${reportPath.includes('?') ? '&' : '?'}authed=1`;
+            router.push(`/signup?redirect=${encodeURIComponent(target)}`);
             return;
           }
         } else {
@@ -179,11 +173,8 @@ export default function HomePage() {
       targetReportPath = `/report?${q}`;
     }
 
-    if (user) {
-      router.push(targetReportPath);
-    } else {
-      router.push(`/signup?redirect=${encodeURIComponent(targetReportPath)}`);
-    }
+    const finalTarget = targetReportPath.includes('authed=1') ? targetReportPath : `${targetReportPath}${targetReportPath.includes('?') ? '&' : '?'}authed=1`;
+    router.push(`/signup?redirect=${encodeURIComponent(finalTarget)}`);
   };
 
   const getWorkspaceHref = (roleTarget: 'STUDENT' | 'TECHNICIAN' | 'ADMIN') => {

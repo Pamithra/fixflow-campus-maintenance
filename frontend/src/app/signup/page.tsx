@@ -47,21 +47,6 @@ function SignupForm() {
     api.get('/health').catch(() => {});
   }, []);
 
-  // If user is already logged in, immediately forward them to their destination without stopping on signup
-  React.useEffect(() => {
-    if (user) {
-      router.replace(redirectUrl || (user.role === 'ADMIN' ? '/dashboard' : user.role === 'TECHNICIAN' ? '/tasks' : '/report'));
-    }
-  }, [user, redirectUrl, router]);
-
-  if (user) {
-    return (
-      <div className="text-white text-xs flex items-center justify-center gap-2 py-12">
-        <Loader2 className="w-4 h-4 animate-spin text-indigo-400" /> Redirecting to FixFlow...
-      </div>
-    );
-  }
-
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
