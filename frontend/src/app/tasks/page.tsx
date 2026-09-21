@@ -177,16 +177,18 @@ export default function TechnicianTasksPage() {
         } catch (e) {
           uploadedUrl = afterImagePreview || '';
         }
+        if (!uploadedUrl && afterImagePreview) {
+          uploadedUrl = afterImagePreview;
+        }
         try {
           const formData = new FormData();
           formData.append('image', afterImageFile);
-          const uploadRes = await api.post('/upload', formData, {
+          await api.post('/upload', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
           });
-          if (uploadRes.data?.url && !uploadRes.data.url.includes('localhost')) {
-            uploadedUrl = uploadRes.data.url;
-          }
-        } catch (uploadErr) {}
+        } catch (uploadErr) {
+          // Client data URL provides reliable permanent persistence
+        }
       }
 
       const res = await api.post(`/technician/tasks/${taskId}/complete`, {

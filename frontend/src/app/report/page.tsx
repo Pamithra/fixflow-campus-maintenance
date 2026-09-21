@@ -566,25 +566,25 @@ function ReportContent() {
     try {
       let uploadedUrl = '';
       if (imageFile) {
-        // Compress photo to lightweight web data URL to ensure it permanently renders and persists
+        // Compress photo to lightweight web data URL to ensure the user's actual uploaded photo permanently renders and persists
         try {
           uploadedUrl = await compressImageToDataUrl(imageFile);
         } catch (e) {
           uploadedUrl = imagePreview || '';
         }
+        if (!uploadedUrl && imagePreview) {
+          uploadedUrl = imagePreview;
+        }
 
-        // Also attempt backend upload if accessible
+        // Background backup upload to server if accessible
         try {
           const formData = new FormData();
           formData.append('image', imageFile);
-          const uploadRes = await api.post('/upload', formData, {
+          await api.post('/upload', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
           });
-          if (uploadRes.data?.url && !uploadRes.data.url.includes('localhost')) {
-            uploadedUrl = uploadRes.data.url;
-          }
         } catch (uploadErr) {
-          console.log('Using optimized client photo URL');
+          // Silently ignore - client data URL provides 100% reliable persistence
         }
       }
 
