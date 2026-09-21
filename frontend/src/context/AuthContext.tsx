@@ -63,6 +63,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {}
     }
 
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('fixflow_qr_authed', 'true');
+    }
+
     if (target && !target.startsWith('/login') && !target.startsWith('/signup')) {
       router.push(target);
       return;

@@ -35,7 +35,6 @@ func main() {
 	}
 
 	r := gin.Default()
-	r.Static("/uploads", "./uploads")
 
 	r.Use(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
@@ -53,6 +52,8 @@ func main() {
 		}
 		c.Next()
 	})
+
+	r.Static("/uploads", "./uploads")
 
 	api := r.Group("/api")
 	{

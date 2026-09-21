@@ -41,7 +41,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import Navbar from '@/components/Navbar';
-import { resolveImageUrl } from '@/lib/utils';
+import { resolveImageUrl, compressImageToDataUrl } from '@/lib/utils';
 
 const EQUIPMENT_CATEGORIES = [
   { id: 'Computers & Workstations', label: 'Computers & Workstations', icon: Monitor },
@@ -131,15 +131,15 @@ function ReportContent() {
         const isQRScan = params.has('tag') || params.has('category') || params.has('room') || params.has('floor');
         const isFromAuth = params.get('authed') === '1' || sessionStorage.getItem('fixflow_qr_authed') === 'true';
 
-        // Fresh QR scan with equipment details must ALWAYS navigate to /signup first
-        if (isQRScan && !isFromAuth) {
+        // Fresh QR scan with equipment details must route to /signup if user is not authenticated
+        if (isQRScan && !user && !isFromAuth) {
           params.set('authed', '1');
           const targetPath = `${window.location.pathname}?${params.toString()}`;
           router.replace(`/signup?redirect=${encodeURIComponent(targetPath)}`);
           return;
         }
 
-        if (isQRScan && isFromAuth) {
+        if (isQRScan && (isFromAuth || user)) {
           sessionStorage.setItem('fixflow_qr_authed', 'true');
         }
       }
@@ -562,12 +562,26 @@ function ReportContent() {
     try {
       let uploadedUrl = '';
       if (imageFile) {
-        const formData = new FormData();
-        formData.append('image', imageFile);
-        const uploadRes = await api.post('/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        uploadedUrl = uploadRes.data.url;
+        // Compress photo to lightweight web data URL to ensure it permanently renders and persists
+        try {
+          uploadedUrl = await compressImageToDataUrl(imageFile);
+        } catch (e) {
+          uploadedUrl = imagePreview || '';
+        }
+
+        // Also attempt backend upload if accessible
+        try {
+          const formData = new FormData();
+          formData.append('image', imageFile);
+          const uploadRes = await api.post('/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          if (uploadRes.data?.url && !uploadRes.data.url.includes('localhost')) {
+            uploadedUrl = uploadRes.data.url;
+          }
+        } catch (uploadErr) {
+          console.log('Using optimized client photo URL');
+        }
       }
 
       const currentLive = calculateLivePriority();

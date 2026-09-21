@@ -21,16 +21,17 @@ import {
   ListFilter,
   Shield,
   Info,
-  Zap,
   UserCheck,
-  Star
+  Star,
+  Zap,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Navbar from '@/components/Navbar';
-import { resolveImageUrl } from '@/lib/utils';
+import { resolveImageUrl, compressImageToDataUrl } from '@/lib/utils';
 
 const getBuildingDisplayName = (buildingName?: string, roomNumber?: string) => {
   if (buildingName && buildingName !== 'Main Building' && !buildingName.includes('Faculty of')) {
@@ -168,12 +169,21 @@ export default function TechnicianTasksPage() {
     try {
       let uploadedUrl = '';
       if (afterImageFile) {
-        const formData = new FormData();
-        formData.append('image', afterImageFile);
-        const uploadRes = await api.post('/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        uploadedUrl = uploadRes.data.url;
+        try {
+          uploadedUrl = await compressImageToDataUrl(afterImageFile);
+        } catch (e) {
+          uploadedUrl = afterImagePreview || '';
+        }
+        try {
+          const formData = new FormData();
+          formData.append('image', afterImageFile);
+          const uploadRes = await api.post('/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          if (uploadRes.data?.url && !uploadRes.data.url.includes('localhost')) {
+            uploadedUrl = uploadRes.data.url;
+          }
+        } catch (uploadErr) {}
       }
 
       const res = await api.post(`/technician/tasks/${taskId}/complete`, {
@@ -611,13 +621,25 @@ export default function TechnicianTasksPage() {
                         {req?.image_url && (
                           <div className="space-y-1">
                             <span className="text-[10px] text-slate-400 font-semibold uppercase">Initial Problem Photo</span>
-                            <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-800 cursor-pointer" onClick={() => window.open(resolveImageUrl(req.image_url), '_blank')}>
+                            <div className="w-24 h-24 rounded-lg overflow-hidden border border-slate-700 bg-slate-900/90 cursor-pointer relative group flex items-center justify-center" onClick={() => window.open(resolveImageUrl(req.image_url), '_blank')}>
                               <img 
                                 src={resolveImageUrl(req.image_url)} 
                                 alt="Initial Defect" 
-                                className="w-full h-full object-cover hover:scale-105 transition" 
-                                onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                className="w-full h-full object-cover group-hover:scale-105 transition" 
+                                onError={(e) => { 
+                                  const el = e.target as HTMLElement;
+                                  el.style.display = 'none';
+                                  const parent = el.parentElement;
+                                  if (parent) {
+                                    const fb = parent.querySelector('.photo-error-fallback');
+                                    if (fb) (fb as HTMLElement).style.display = 'flex';
+                                  }
+                                }}
                               />
+                              <div className="photo-error-fallback hidden flex-col items-center justify-center p-2 text-center text-slate-400 text-[10px] space-y-1">
+                                <ImageIcon className="w-6 h-6 text-indigo-400 opacity-80" />
+                                <span className="font-semibold text-[9px] text-slate-300">Tap to View</span>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -746,13 +768,25 @@ export default function TechnicianTasksPage() {
                             {wo.after_image_url && (
                               <div className="pt-1">
                                 <span className="text-[10px] text-slate-400 font-semibold uppercase">Photo of Fixed Equipment:</span>
-                                <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 mt-1 cursor-pointer" onClick={() => window.open(resolveImageUrl(wo.after_image_url), '_blank')}>
+                                <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 bg-slate-900/90 mt-1 cursor-pointer relative group flex items-center justify-center" onClick={() => window.open(resolveImageUrl(wo.after_image_url), '_blank')}>
                                   <img 
                                     src={resolveImageUrl(wo.after_image_url)} 
                                     alt="Repaired Evidence" 
-                                    className="w-full h-full object-cover hover:scale-105 transition" 
-                                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition" 
+                                    onError={(e) => { 
+                                      const el = e.target as HTMLElement;
+                                      el.style.display = 'none';
+                                      const parent = el.parentElement;
+                                      if (parent) {
+                                        const fb = parent.querySelector('.photo-error-fallback');
+                                        if (fb) (fb as HTMLElement).style.display = 'flex';
+                                      }
+                                    }}
                                   />
+                                  <div className="photo-error-fallback hidden flex-col items-center justify-center p-1 text-center text-slate-400 text-[9px]">
+                                    <ImageIcon className="w-5 h-5 text-indigo-400 opacity-80" />
+                                    <span>View Photo</span>
+                                  </div>
                                 </div>
                               </div>
                             )}
@@ -772,13 +806,25 @@ export default function TechnicianTasksPage() {
                             {wo.after_image_url && (
                               <div className="pt-1">
                                 <span className="text-[10px] text-slate-400 font-semibold uppercase">Photo of Fixed Equipment:</span>
-                                <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 mt-1 cursor-pointer" onClick={() => window.open(resolveImageUrl(wo.after_image_url), '_blank')}>
+                                <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-700 bg-slate-900/90 mt-1 cursor-pointer relative group flex items-center justify-center" onClick={() => window.open(resolveImageUrl(wo.after_image_url), '_blank')}>
                                   <img 
                                     src={resolveImageUrl(wo.after_image_url)} 
                                     alt="Repaired Evidence" 
-                                    className="w-full h-full object-cover hover:scale-105 transition" 
-                                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition" 
+                                    onError={(e) => { 
+                                      const el = e.target as HTMLElement;
+                                      el.style.display = 'none';
+                                      const parent = el.parentElement;
+                                      if (parent) {
+                                        const fb = parent.querySelector('.photo-error-fallback');
+                                        if (fb) (fb as HTMLElement).style.display = 'flex';
+                                      }
+                                    }}
                                   />
+                                  <div className="photo-error-fallback hidden flex-col items-center justify-center p-1 text-center text-slate-400 text-[9px]">
+                                    <ImageIcon className="w-5 h-5 text-indigo-400 opacity-80" />
+                                    <span>View Photo</span>
+                                  </div>
                                 </div>
                               </div>
                             )}

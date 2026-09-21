@@ -79,17 +79,11 @@ function SignupForm() {
 
       await api.post('/auth/register', payload);
 
-      // Auto-login upon successful registration
-      try {
-        const loginRes = await api.post('/auth/login', {
-          email: email,
-          password: password,
-        });
-        login(loginRes.data.token, loginRes.data.user, redirectUrl || undefined);
-      } catch (loginErr) {
-        // Fallback: navigate to login page with pre-filled credentials and success notice
+      // User requirement: after creating account, navigate to sign in page
+      setSuccess('Account created successfully! Redirecting to sign in...');
+      setTimeout(() => {
         router.push(`/login?registered=true${redirectUrl ? `&redirect=${encodeURIComponent(redirectUrl)}` : ''}`);
-      }
+      }, 700);
     } catch (err: any) {
       if (!err.response) {
         setError('Unable to connect to the server. Please check your network connection and try again.');
@@ -150,19 +144,6 @@ function SignupForm() {
             Join FixFlow to report campus issues, track repairs, and receive maintenance updates.
           </CardDescription>
         </CardHeader>
-
-        {/* Quick Log In Switcher at TOP (Zero Scrolling) */}
-        <div className="px-6 pb-2">
-          <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between text-xs">
-            <span className="text-slate-300">Already have an account?</span>
-            <Link 
-              href={`/login${redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : ''}`}
-              className="text-indigo-400 hover:text-indigo-300 font-semibold px-3 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 hover:bg-indigo-500/20 transition flex items-center gap-1 shadow-sm"
-            >
-              Log In <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
 
         <CardContent className="space-y-4 pt-1">
           {error && (

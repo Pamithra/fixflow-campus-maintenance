@@ -186,19 +186,6 @@ function LoginForm() {
           </CardDescription>
         </CardHeader>
 
-        {/* Quick Sign Up Switcher at TOP (Zero Scrolling) */}
-        <div className="px-6 pb-2">
-          <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between text-xs">
-            <span className="text-slate-300">Don't have an account?</span>
-            <Link 
-              href={`/signup${redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : ''}`}
-              className="text-indigo-400 hover:text-indigo-300 font-semibold px-3 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 hover:bg-indigo-500/20 transition flex items-center gap-1 shadow-sm"
-            >
-              Sign Up <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-
         <CardContent className="space-y-4 pt-1">
           {error && (
             <div className="p-3 text-xs bg-rose-500/10 border border-rose-500/25 text-rose-300 rounded-lg flex items-center gap-2.5 animate-in fade-in">

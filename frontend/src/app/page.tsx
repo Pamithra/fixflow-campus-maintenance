@@ -174,7 +174,14 @@ export default function HomePage() {
     }
 
     const finalTarget = targetReportPath.includes('authed=1') ? targetReportPath : `${targetReportPath}${targetReportPath.includes('?') ? '&' : '?'}authed=1`;
-    router.push(`/signup?redirect=${encodeURIComponent(finalTarget)}`);
+    if (user) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('fixflow_qr_authed', 'true');
+      }
+      router.push(finalTarget);
+    } else {
+      router.push(`/signup?redirect=${encodeURIComponent(finalTarget)}`);
+    }
   };
 
   const getWorkspaceHref = (roleTarget: 'STUDENT' | 'TECHNICIAN' | 'ADMIN') => {
