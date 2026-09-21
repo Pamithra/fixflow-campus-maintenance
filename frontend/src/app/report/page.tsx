@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -658,6 +659,36 @@ function ReportContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400 text-xs">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading FixFlow Portal...
+      </div>
+    );
+  }
+
+  // Administrators cannot submit issue reports
+  if (user.role === 'ADMIN') {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 w-full max-w-full">
+        <Navbar />
+        <main className="max-w-lg mx-auto px-4 pt-16 text-center space-y-4">
+          <div className="w-14 h-14 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
+            <AlertTriangle className="w-7 h-7" />
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Access Restricted</h1>
+          <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-md mx-auto">
+            The Incident Reporting page is reserved for campus students and faculty staff. Administrators cannot submit issue reports.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
+            <Link href="/">
+              <Button variant="outline" className="border-slate-800 text-slate-300 hover:text-white text-xs">
+                Back to Main Page
+              </Button>
+            </Link>
+            <Link href="/dashboard">
+              <Button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold">
+                Go to Command Dashboard
+              </Button>
+            </Link>
+          </div>
+        </main>
       </div>
     );
   }

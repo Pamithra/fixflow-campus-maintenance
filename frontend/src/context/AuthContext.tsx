@@ -67,14 +67,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       sessionStorage.setItem('fixflow_qr_authed', 'true');
     }
 
-    if (target && !target.startsWith('/login') && !target.startsWith('/signup')) {
-      router.push(target);
+    // Admin always goes to Command Dashboard, never to incident reporting
+    if (newUser.role === 'ADMIN') {
+      router.push('/dashboard');
       return;
     }
 
-    // Admin always goes to Command Dashboard
-    if (newUser.role === 'ADMIN') {
-      router.push('/dashboard');
+    if (target && !target.startsWith('/login') && !target.startsWith('/signup')) {
+      router.push(target);
       return;
     }
 

@@ -45,6 +45,7 @@ function LoginForm() {
   // UI State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [adminBlocked, setAdminBlocked] = useState(false);
   const [success, setSuccess] = useState(registeredParam ? 'Account created successfully! Please sign in with your credentials.' : '');
 
   // Forgot Password State
@@ -82,6 +83,17 @@ function LoginForm() {
         email: loginEmail, 
         password: loginPassword 
       });
+
+      const loggedUser = res.data.user;
+      const isReportFlow = redirectUrl.includes('/report') || redirectUrl.startsWith('/report');
+
+      // Admin is not allowed to enter or submit in the Report Issue flow
+      if (loggedUser?.role === 'ADMIN' && isReportFlow) {
+        setError('Access Restricted: The Incident Reporting portal is not for Administrators. Issue reports can only be submitted by Students and Staff. Administrators cannot report issues.');
+        setAdminBlocked(true);
+        setLoading(false);
+        return;
+      }
 
       login(res.data.token, res.data.user, redirectUrl || undefined);
     } catch (err: any) {
@@ -188,9 +200,25 @@ function LoginForm() {
 
         <CardContent className="space-y-4 pt-1">
           {error && (
-            <div className="p-3 text-xs bg-rose-500/10 border border-rose-500/25 text-rose-300 rounded-lg flex items-center gap-2.5 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span>{error}</span>
+            <div className="p-3.5 text-xs bg-rose-500/15 border border-rose-500/30 text-rose-300 rounded-lg space-y-2.5 animate-in fade-in">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <span className="leading-relaxed">{error}</span>
+              </div>
+              {adminBlocked && (
+                <div className="pt-1 border-t border-rose-500/20">
+                  <Link href="/" className="block w-full">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-rose-500/40 hover:bg-rose-500/20 text-rose-200 text-xs font-semibold h-8"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Back to Main Page
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
