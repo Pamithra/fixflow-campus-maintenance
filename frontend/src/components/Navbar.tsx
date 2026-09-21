@@ -138,12 +138,12 @@ export default function Navbar() {
   const role = user.role;
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-16 flex items-center justify-between gap-1 sm:gap-4 w-full">
+    <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-4 w-full">
         
         {/* Brand */}
         <div className="flex items-center gap-2 shrink-0">
-          <Link href={role === 'ADMIN' ? '/dashboard' : role === 'TECHNICIAN' ? '/tasks' : '/report'} className="flex items-center gap-1.5 sm:gap-2 group">
+          <Link href="/" className="flex items-center gap-1.5 sm:gap-2 group">
             <div className="p-1.5 sm:p-2 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 group-hover:scale-105 transition">
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
@@ -206,10 +206,28 @@ export default function Navbar() {
               </Link>
             </>
           )}
+
+          {/* STUDENT / STAFF LINKS */}
+          {(role === 'STUDENT' || role === 'STAFF') && (
+            <Link href="/report">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={`text-xs gap-1 sm:gap-1.5 h-8 px-2 sm:px-2.5 ${
+                  pathname === '/report' 
+                    ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-medium' 
+                    : 'text-slate-300 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-[11px] sm:text-xs">Portal</span>
+              </Button>
+            </Link>
+          )}
         </nav>
 
         {/* Right Actions: Notifications Bell & User Profile */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
           
           {/* Notification Bell with Popover */}
           <div className="relative" ref={notifRef}>
@@ -306,63 +324,95 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* User Profile Capsule & Sign Out */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 border-l border-slate-800 pl-1.5 sm:pl-3 shrink-0">
-            
-            {/* Professional User Profile Capsule */}
-            <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-left">
-              <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-[11px] sm:text-xs shrink-0 border ${
-                role === 'ADMIN' 
-                  ? 'bg-purple-600/20 border-purple-500/40 text-purple-300' 
-                  : role === 'TECHNICIAN'
-                  ? 'bg-amber-600/20 border-amber-500/40 text-amber-300'
-                  : role === 'STAFF'
-                  ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
-                  : 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
-              }`}>
-                {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
-              </div>
-
-              <div className="min-w-0 leading-tight">
-                <div className="flex items-center gap-1 sm:gap-1.5">
-                  <span className="text-xs sm:text-sm font-semibold text-white truncate max-w-[80px] sm:max-w-[150px]">
-                    {user.full_name}
-                  </span>
-                  <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${
-                    role === 'ADMIN' 
-                      ? 'bg-purple-500/15 border-purple-500/30 text-purple-300' 
-                      : role === 'TECHNICIAN'
-                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
-                      : role === 'STAFF'
-                      ? 'bg-blue-500/15 border-blue-500/30 text-blue-300'
-                      : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                  }`}>
-                    {role === 'ADMIN' ? '👑 Admin' : role === 'TECHNICIAN' ? (user.skill_category ? `🔧 ${user.skill_category}` : '🔧 Tech') : role === 'STAFF' ? '💼 Staff' : '🎓 Student'}
-                  </span>
-                </div>
-
-                <div className="text-[10px] sm:text-[11px] text-slate-400 flex items-center gap-1 truncate max-w-[120px] sm:max-w-[180px] mt-0.5">
-                  <Phone className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-indigo-400 shrink-0" />
-                  <span className="truncate font-mono">{user.phone_number || user.email}</span>
-                </div>
-              </div>
+          {/* User Profile Capsule on Desktop */}
+          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-left shrink-0">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 border ${
+              role === 'ADMIN' 
+                ? 'bg-purple-600/20 border-purple-500/40 text-purple-300' 
+                : role === 'TECHNICIAN'
+                ? 'bg-amber-600/20 border-amber-500/40 text-amber-300'
+                : role === 'STAFF'
+                ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
+                : 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
+            }`}>
+              {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
 
-            {/* Logout Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={logout}
-              title="Log out"
-              className="h-8 w-8 sm:w-auto p-0 sm:px-2.5 border-slate-800 hover:bg-rose-500/10 hover:border-rose-500/30 text-slate-300 hover:text-rose-400 text-xs flex items-center justify-center gap-1.5 shrink-0 transition"
-            >
-              <LogOut className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden sm:inline">Logout</span>
-            </Button>
+            <div className="min-w-0 leading-tight">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs sm:text-sm font-semibold text-white truncate max-w-[140px]">
+                  {user.full_name}
+                </span>
+                <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${
+                  role === 'ADMIN' 
+                    ? 'bg-purple-500/15 border-purple-500/30 text-purple-300' 
+                    : role === 'TECHNICIAN'
+                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                    : role === 'STAFF'
+                    ? 'bg-blue-500/15 border-blue-500/30 text-blue-300'
+                    : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                }`}>
+                  {role === 'ADMIN' ? '👑 Admin' : role === 'TECHNICIAN' ? (user.skill_category ? `🔧 ${user.skill_category}` : '🔧 Tech') : role === 'STAFF' ? '💼 Staff' : '🎓 Student'}
+                </span>
+              </div>
+
+              <div className="text-[11px] text-slate-400 flex items-center gap-1 truncate max-w-[170px] mt-0.5">
+                <Phone className="w-3 h-3 text-indigo-400 shrink-0" />
+                <span className="truncate font-mono">{user.phone_number || user.email}</span>
+              </div>
+            </div>
           </div>
+
+          {/* Logout Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={logout}
+            title="Log out"
+            className="h-8 w-8 sm:w-auto p-0 sm:px-2.5 border-slate-800 hover:bg-rose-500/10 hover:border-rose-500/30 text-slate-300 hover:text-rose-400 text-xs flex items-center justify-center gap-1.5 shrink-0 transition"
+          >
+            <LogOut className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Logout</span>
+          </Button>
 
         </div>
 
+      </div>
+
+      {/* Mobile User Information Ribbon */}
+      <div className="sm:hidden w-full bg-slate-900/95 border-t border-slate-800/80 px-2.5 py-1.5 flex items-center justify-between gap-1.5 text-xs">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <div className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 border ${
+            role === 'ADMIN' 
+              ? 'bg-purple-600/20 border-purple-500/40 text-purple-300' 
+              : role === 'TECHNICIAN'
+              ? 'bg-amber-600/20 border-amber-500/40 text-amber-300'
+              : role === 'STAFF'
+              ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
+              : 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
+          }`}>
+            {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
+          </div>
+          <span className="text-xs font-semibold text-white truncate max-w-[110px]">
+            {user.full_name}
+          </span>
+          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${
+            role === 'ADMIN' 
+              ? 'bg-purple-500/15 border-purple-500/30 text-purple-300' 
+              : role === 'TECHNICIAN'
+              ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+              : role === 'STAFF'
+              ? 'bg-blue-500/15 border-blue-500/30 text-blue-300'
+              : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+          }`}>
+            {role === 'ADMIN' ? '👑 Admin' : role === 'TECHNICIAN' ? (user.skill_category ? `🔧 ${user.skill_category}` : '🔧 Tech') : role === 'STAFF' ? '💼 Staff' : '🎓 Student'}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1 text-[10px] text-slate-300 font-mono shrink-0">
+          <Phone className="w-2.5 h-2.5 text-indigo-400 shrink-0" />
+          <span className="truncate max-w-[115px]">{user.phone_number || user.email}</span>
+        </div>
       </div>
     </header>
   );

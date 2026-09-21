@@ -625,17 +625,17 @@ export default function AdminDashboardPage() {
                       return (
                         <div
                           key={t.ID}
-                          className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition space-y-3"
+                          className="p-3.5 sm:p-4 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition space-y-3 w-full min-w-0 overflow-hidden"
                         >
-                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            <div className="space-y-2 max-w-2xl">
-                              <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 min-w-0">
+                            <div className="space-y-2 max-w-2xl min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 min-w-0">
                                 <span className="font-mono text-xs font-bold text-indigo-400">{t.ticket_number}</span>
                                 <Badge
                                   className={`text-[10px] ${
-                                    t.calculated_priority === 'CRITICAL' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' :
-                                    t.calculated_priority === 'HIGH' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                                    'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                                    t.calculated_priority === 'CRITICAL' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                                    t.calculated_priority === 'HIGH' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                                    'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                                   }`}
                                 >
                                   {t.calculated_priority} Priority
@@ -665,31 +665,31 @@ export default function AdminDashboardPage() {
                               </div>
 
                               {/* Exact Maintenance Location Path */}
-                              <div className="p-2.5 rounded-lg bg-indigo-950/20 border border-indigo-500/20 text-xs space-y-1">
+                              <div className="p-2.5 rounded-lg bg-indigo-950/20 border border-indigo-500/20 text-xs space-y-1 w-full min-w-0">
                                 <div className="flex items-center gap-1.5 text-indigo-400 font-semibold text-[10px]">
                                   <MapPin className="w-3.5 h-3.5 shrink-0" />
                                   <span>Exact Maintenance Location Path:</span>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-medium">
+                                <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 text-[11px]">
+                                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-medium break-all">
                                     IT Faculty
                                   </span>
-                                  <span className="text-slate-600 font-bold">➔</span>
-                                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-indigo-300 font-medium">
+                                  <span className="text-slate-600 font-bold shrink-0">➔</span>
+                                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-indigo-300 font-medium break-all">
                                     {floor ? (floor.floor_number === 0 ? 'Floor 0 (Ground Floor)' : `Floor ${floor.floor_number}`) : 'Ground Floor'}
                                   </span>
-                                  <span className="text-slate-600 font-bold">➔</span>
-                                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-amber-300 font-medium">
+                                  <span className="text-slate-600 font-bold shrink-0">➔</span>
+                                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-amber-300 font-medium break-all">
                                     {getBuildingDisplayName(building?.name, room?.room_number)}
                                   </span>
-                                  <span className="text-slate-600 font-bold">➔</span>
-                                  <span className="px-2.5 py-0.5 rounded bg-indigo-600/20 border border-indigo-500/40 text-white font-bold">
+                                  <span className="text-slate-600 font-bold shrink-0">➔</span>
+                                  <span className="px-2.5 py-0.5 rounded bg-indigo-600/20 border border-indigo-500/40 text-white font-bold break-all">
                                     Room {room?.room_number || 'General'} {room?.room_type ? `(${room.room_type})` : ''}
                                   </span>
                                 </div>
                               </div>
 
-                              <p className="text-sm text-slate-200">{t.description}</p>
+                              <p className="text-sm text-slate-200 break-words leading-relaxed">{t.description}</p>
 
                               <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-3 pt-1">
                                 <span>Reported by: <strong className="text-slate-300">{t.Reporter?.full_name || t.reporter?.full_name}</strong></span>

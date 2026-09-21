@@ -33,18 +33,6 @@ export default function HomePage() {
   const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  // If user is already authenticated and visits root URL, route directly to workspace
-  useEffect(() => {
-    if (!authLoading && user) {
-      if (user.role === 'ADMIN') {
-        router.replace('/dashboard');
-      } else if (user.role === 'TECHNICIAN') {
-        router.replace('/tasks');
-      } else {
-        router.replace('/report');
-      }
-    }
-  }, [user, authLoading, router]);
 
   // Pre-warm cloud backend in background on initial landing
   useEffect(() => {
@@ -202,7 +190,7 @@ export default function HomePage() {
     if (!user) {
       if (roleTarget === 'ADMIN') return '/login?redirect=/dashboard';
       if (roleTarget === 'TECHNICIAN') return '/login?redirect=/tasks';
-      return '/login?redirect=/report';
+      return '/signup?redirect=/report';
     }
     if (roleTarget === 'ADMIN') return '/dashboard';
     if (roleTarget === 'TECHNICIAN') return '/tasks';
@@ -210,7 +198,7 @@ export default function HomePage() {
   };
 
   const primaryReportHref = !user 
-    ? '/login?redirect=/report' 
+    ? '/signup?redirect=/report' 
     : user.role === 'ADMIN' 
       ? '/dashboard' 
       : user.role === 'TECHNICIAN' 

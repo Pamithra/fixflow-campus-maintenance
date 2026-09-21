@@ -519,15 +519,15 @@ export default function TechnicianTasksPage() {
                   return (
                     <div
                       key={wo.ID}
-                      className="p-3.5 sm:p-5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3.5 sm:space-y-4 hover:border-slate-700 transition"
+                      className="p-3.5 sm:p-5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3.5 sm:space-y-4 hover:border-slate-700 transition w-full min-w-0 overflow-hidden"
                     >
                       {/* Top Bar: Ticket ID, Severity Badge, Status Badge, SLA */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
                           <span className="font-mono text-xs font-bold text-amber-400">{req?.ticket_number}</span>
                           {(req?.created_at || req?.CreatedAt) && (
                             <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-slate-500" />
+                              <Clock className="w-3 h-3 text-slate-500 shrink-0" />
                               {new Date(req.created_at || req.CreatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                             </span>
                           )}
@@ -585,44 +585,44 @@ export default function TechnicianTasksPage() {
                       </div>
 
                       {/* Exact Maintenance Location Breadcrumb */}
-                      <div className="p-2.5 sm:p-3 rounded-lg bg-indigo-950/25 border border-indigo-500/20 text-xs space-y-1">
+                      <div className="p-2.5 sm:p-3 rounded-lg bg-indigo-950/25 border border-indigo-500/20 text-xs space-y-1 w-full min-w-0">
                         <div className="flex items-center gap-1.5 text-indigo-400 font-semibold text-[10px] sm:text-[11px]">
                           <MapPin className="w-3.5 h-3.5 shrink-0" />
                           <span>Exact Maintenance Location Path:</span>
                         </div>
                         <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs">
-                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-medium">
+                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-medium break-all">
                             IT Faculty
                           </span>
-                          <span className="text-slate-600 font-bold">➔</span>
-                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-indigo-300 font-medium">
+                          <span className="text-slate-600 font-bold shrink-0">➔</span>
+                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-indigo-300 font-medium break-all">
                             {floor ? (floor.floor_number === 0 ? 'Floor 0 (Ground)' : `Floor ${floor.floor_number}`) : 'Ground Floor'}
                           </span>
-                          <span className="text-slate-600 font-bold">➔</span>
-                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-amber-300 font-medium">
+                          <span className="text-slate-600 font-bold shrink-0">➔</span>
+                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-amber-300 font-medium break-all">
                             {getBuildingDisplayName(building?.name, room?.room_number)}
                           </span>
-                          <span className="text-slate-600 font-bold">➔</span>
-                          <span className="px-2.5 py-0.5 rounded bg-indigo-600/20 border border-indigo-500/40 text-white font-bold">
+                          <span className="text-slate-600 font-bold shrink-0">➔</span>
+                          <span className="px-2.5 py-0.5 rounded bg-indigo-600/20 border border-indigo-500/40 text-white font-bold break-all">
                             Room {room?.room_number || 'Main Area'} {room?.room_type ? `(${room.room_type})` : ''}
                           </span>
                         </div>
                       </div>
 
                       {/* Equipment & Description */}
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0">
                         {(req?.custom_equipment_name || req?.equipment_category || asset?.name) && (
-                          <div className="text-xs text-indigo-300 font-semibold flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5" /> Target Equipment: {req?.custom_equipment_name || req?.equipment_category || asset?.name} {asset?.asset_tag ? `[${asset.asset_tag}]` : ''}
+                          <div className="text-xs text-indigo-300 font-semibold flex items-center gap-1.5 break-words">
+                            <Sparkles className="w-3.5 h-3.5 shrink-0" /> Target Equipment: {req?.custom_equipment_name || req?.equipment_category || asset?.name} {asset?.asset_tag ? `[${asset.asset_tag}]` : ''}
                           </div>
                         )}
-                        <p className="text-sm text-slate-200">{req?.description}</p>
+                        <p className="text-sm text-slate-200 break-words leading-relaxed">{req?.description}</p>
                       </div>
 
                       {/* Before Photo & Personnel Info */}
-                      <div className="flex flex-wrap items-center gap-4 pt-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-1">
                         {req?.image_url && (
-                          <div className="space-y-1">
+                          <div className="space-y-1 shrink-0">
                             <span className="text-[10px] text-slate-400 font-semibold uppercase">Initial Problem Photo</span>
                             <div 
                               className="w-24 h-24 rounded-lg overflow-hidden border border-slate-700 bg-slate-900/90 cursor-pointer relative group flex items-center justify-center" 
@@ -651,7 +651,7 @@ export default function TechnicianTasksPage() {
                             </div>
                           </div>
                         )}
-                        <div className="text-xs text-slate-400 space-y-1">
+                        <div className="text-xs text-slate-400 space-y-1 min-w-0 break-words flex-1">
                           <div>Reported by: <strong className="text-slate-300">{reporter?.full_name || 'Campus User'}</strong> {(req?.created_at || req?.CreatedAt) && <span className="text-slate-500 font-mono text-[11px] ml-1">at {new Date(req.created_at || req.CreatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>}</div>
                           <div>Assigned Technician: <strong className="text-indigo-300">{wo.Technician?.full_name || wo.technician?.full_name || user?.full_name || 'Assigned Technician'}</strong></div>
                         </div>
@@ -726,10 +726,10 @@ export default function TechnicianTasksPage() {
                             />
 
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                              <div className="flex items-center gap-3">
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                                 <label className="cursor-pointer inline-flex items-center justify-center gap-2 px-3 py-2 sm:py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-300 transition w-full sm:w-auto">
-                                  <Camera className="w-4 h-4 text-amber-400" />
-                                  {afterImageFile ? 'Change Fixed Equipment Photo' : 'Upload Photo of Fixed Equipment'}
+                                  <Camera className="w-4 h-4 text-amber-400 shrink-0" />
+                                  <span className="truncate">{afterImageFile ? 'Change Fixed Photo' : 'Upload Fixed Equipment Photo'}</span>
                                   <input
                                     type="file"
                                     accept="image/*"
