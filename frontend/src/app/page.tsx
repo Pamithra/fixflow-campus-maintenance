@@ -123,6 +123,51 @@ export default function HomePage() {
     setScannedSuccess(null);
     scanLockRef.current = false;
 
+    // 1. If scanned code is an HTTP/HTTPS URL
+    if (cleanTag.startsWith('http://') || cleanTag.startsWith('https://')) {
+      try {
+        const parsedUrl = new URL(cleanTag);
+        
+        // If it's a FixFlow domain or localhost
+        if (
+          parsedUrl.hostname.includes('vercel.app') || 
+          parsedUrl.hostname.includes('localhost') || 
+          parsedUrl.hostname.includes('fixflow')
+        ) {
+          // Case A: Link contains redirect parameter (e.g. /signup?redirect=/report?category=...)
+          const redirectParam = parsedUrl.searchParams.get('redirect');
+          if (redirectParam) {
+            const decodedTarget = decodeURIComponent(redirectParam);
+            if (user) {
+              router.push(decodedTarget);
+            } else {
+              router.push(`/signup?redirect=${encodeURIComponent(decodedTarget)}`);
+            }
+            return;
+          }
+
+          // Case B: Direct /report link with query parameters
+          if (parsedUrl.pathname.startsWith('/report')) {
+            const reportPath = parsedUrl.pathname + parsedUrl.search;
+            if (user) {
+              router.push(reportPath);
+            } else {
+              router.push(`/signup?redirect=${encodeURIComponent(reportPath)}`);
+            }
+            return;
+          }
+        } else {
+          // External short URL (e.g., qrco.de/bh1XSL, bit.ly, etc.)
+          // Direct browser navigation allows the short URL's 302 redirect to resolve to FixFlow
+          window.location.href = cleanTag;
+          return;
+        }
+      } catch (e) {
+        window.location.href = cleanTag;
+        return;
+      }
+    }
+
     let targetReportPath = `/report?tag=${encodeURIComponent(cleanTag)}`;
     if (cleanTag.includes('/report?')) {
       const q = cleanTag.split('/report?')[1];

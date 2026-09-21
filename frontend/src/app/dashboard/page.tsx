@@ -287,7 +287,7 @@ export default function AdminDashboardPage() {
     return true;
   });
 
-  const CHART_COLORS = ['#6366F1', '#3B82F6', '#10B981', '#F59E0B', '#EC4899'];
+  const CHART_COLORS = ['#6366F1', '#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#64748B'];
 
   if (authLoading || !user || user.role !== 'ADMIN') {
     return (
@@ -301,16 +301,16 @@ export default function AdminDashboardPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 space-y-6 overflow-x-hidden w-full max-w-full">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-2.5 sm:px-6 space-y-4 sm:space-y-6 w-full min-w-0 overflow-x-hidden">
         
         {/* Sub-Header Bar */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-3.5 sm:p-4 rounded-xl border border-slate-800 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shrink-0">
-              <Shield className="w-5 h-5" />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 bg-slate-900/60 p-3 sm:p-4 rounded-xl border border-slate-800 backdrop-blur w-full min-w-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="p-2 sm:p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shrink-0">
+              <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-white flex flex-wrap items-center gap-2">
+              <h1 className="text-base sm:text-xl font-bold text-white flex flex-wrap items-center gap-1.5 sm:gap-2">
                 Incident Command & Dispatch Center
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                   wsConnected 
@@ -321,7 +321,7 @@ export default function AdminDashboardPage() {
                   {wsConnected ? 'Live' : 'Offline'}
                 </span>
               </h1>
-              <p className="text-xs text-slate-400 truncate">Triage campus incidents, review AI recommendations, and dispatch technicians</p>
+              <p className="text-[11px] sm:text-xs text-slate-400 leading-relaxed">Triage campus incidents, review AI recommendations, and dispatch technicians</p>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={() => loadData(false)} className="w-full sm:w-auto border-slate-800 text-slate-300 hover:text-white text-xs shrink-0">
@@ -331,52 +331,52 @@ export default function AdminDashboardPage() {
 
         {/* Live Notification Banner */}
         {successToast && (
-          <div className="p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center gap-3 animate-in fade-in">
+          <div className="p-3.5 sm:p-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center gap-2.5 sm:gap-3 animate-in fade-in text-xs sm:text-sm">
             <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
-            <span className="font-medium text-sm">{successToast}</span>
+            <span className="font-medium">{successToast}</span>
           </div>
         )}
 
         {/* Operational Bento KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 w-full min-w-0">
           <Card className="bg-slate-900/60 border-slate-800">
-            <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs text-slate-400">Total Incidents</CardDescription>
-              <CardTitle className="text-2xl font-extrabold text-white">{analytics?.total_tickets || incidents.length}</CardTitle>
-              <p className="text-[10px] text-slate-500 mt-1">Campus requests logged across faculty</p>
+            <CardHeader className="p-3 sm:p-4 pb-2">
+              <CardDescription className="text-[11px] sm:text-xs text-slate-400">Total Incidents</CardDescription>
+              <CardTitle className="text-xl sm:text-2xl font-extrabold text-white">{analytics?.total_tickets || incidents.length}</CardTitle>
+              <p className="text-[10px] text-slate-500 mt-0.5 sm:mt-1">Campus requests logged across faculty</p>
             </CardHeader>
           </Card>
 
           <Card className="bg-slate-900/60 border-slate-800">
-            <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs text-slate-400">SLA Compliance Rate</CardDescription>
-              <CardTitle className={`text-2xl font-extrabold flex items-center gap-1.5 ${
+            <CardHeader className="p-3 sm:p-4 pb-2">
+              <CardDescription className="text-[11px] sm:text-xs text-slate-400">SLA Compliance Rate</CardDescription>
+              <CardTitle className={`text-xl sm:text-2xl font-extrabold flex items-center gap-1.5 ${
                 (analytics?.sla_compliance_rate ?? 100) >= 90 ? 'text-emerald-400' :
                 (analytics?.sla_compliance_rate ?? 100) >= 75 ? 'text-amber-400' : 'text-rose-400'
               }`}>
                 {analytics?.sla_compliance_rate ?? 100}%
                 <TrendingUp className="w-4 h-4" />
               </CardTitle>
-              <p className="text-[10px] text-slate-500 mt-1">% of repairs finished within target deadline</p>
+              <p className="text-[10px] text-slate-500 mt-0.5 sm:mt-1">% of repairs finished within target deadline</p>
             </CardHeader>
           </Card>
 
           <Card className="bg-slate-900/60 border-slate-800">
-            <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs text-slate-400">Average MTTR (Repair Time)</CardDescription>
-              <CardTitle className="text-2xl font-extrabold text-blue-400 flex items-center gap-1.5">
+            <CardHeader className="p-3 sm:p-4 pb-2">
+              <CardDescription className="text-[11px] sm:text-xs text-slate-400">Average MTTR (Repair Time)</CardDescription>
+              <CardTitle className="text-xl sm:text-2xl font-extrabold text-blue-400 flex items-center gap-1.5">
                 {analytics?.mttr_hours || 0.2} hrs
                 <Clock className="w-4 h-4 text-blue-400" />
               </CardTitle>
-              <p className="text-[10px] text-slate-500 mt-1">Mean hours to diagnose & complete fixes</p>
+              <p className="text-[10px] text-slate-500 mt-0.5 sm:mt-1">Mean hours to diagnose & complete fixes</p>
             </CardHeader>
           </Card>
 
           <Card className="bg-slate-900/60 border-slate-800">
-            <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs text-slate-400">Resolved & Closed</CardDescription>
-              <CardTitle className="text-2xl font-extrabold text-indigo-400">{analytics?.resolved_tickets || 0}</CardTitle>
-              <p className="text-[10px] text-slate-500 mt-1">Inspected & verified by administrator</p>
+            <CardHeader className="p-3 sm:p-4 pb-2">
+              <CardDescription className="text-[11px] sm:text-xs text-slate-400">Resolved & Closed</CardDescription>
+              <CardTitle className="text-xl sm:text-2xl font-extrabold text-indigo-400">{analytics?.resolved_tickets || 0}</CardTitle>
+              <p className="text-[10px] text-slate-500 mt-0.5 sm:mt-1">Inspected & verified by administrator</p>
             </CardHeader>
           </Card>
         </div>
@@ -403,17 +403,17 @@ export default function AdminDashboardPage() {
           {/* TAB 1: Queue */}
           <TabsContent value="queue" className="space-y-4">
             {/* Status & Priority Filter Controls */}
-            <div className="space-y-2.5 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
+            <div className="space-y-2.5 bg-slate-900/60 p-3 sm:p-3.5 rounded-xl border border-slate-800 w-full min-w-0">
               {/* Lifecycle Status Filter Bar */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-400 flex items-center gap-1.5 font-medium mr-1">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="text-xs text-slate-400 flex items-center gap-1.5 font-medium mr-1 w-full sm:w-auto">
                   <ListFilter className="w-3.5 h-3.5 text-indigo-400" /> Work Order Status:
                 </span>
                 
                 <button
                   type="button"
                   onClick={() => setStatusFilter('ALL')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                     statusFilter === 'ALL'
                       ? 'bg-indigo-600 text-white shadow-md'
                       : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
@@ -429,7 +429,7 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setStatusFilter('OVERDUE')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                     statusFilter === 'OVERDUE'
                       ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
                       : 'bg-slate-900 text-slate-400 hover:text-rose-300 border border-slate-800'
@@ -445,7 +445,7 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setStatusFilter('PENDING')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                     statusFilter === 'PENDING'
                       ? 'bg-amber-600 text-white shadow-md'
                       : 'bg-slate-900 text-slate-400 hover:text-amber-300 border border-slate-800'
@@ -461,7 +461,7 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setStatusFilter('ONGOING')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                     statusFilter === 'ONGOING'
                       ? 'bg-blue-600 text-white shadow-md'
                       : 'bg-slate-900 text-slate-400 hover:text-blue-300 border border-slate-800'
@@ -477,7 +477,7 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setStatusFilter('COMPLETED')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                     statusFilter === 'COMPLETED'
                       ? 'bg-emerald-600 text-white shadow-md'
                       : 'bg-slate-900 text-slate-400 hover:text-emerald-300 border border-slate-800'
@@ -493,7 +493,7 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setStatusFilter('CLOSED')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                     statusFilter === 'CLOSED'
                       ? 'bg-slate-700 text-white shadow-md'
                       : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
@@ -507,8 +507,8 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Severity / Priority Filter Bar */}
-              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/60">
-                <span className="text-xs text-slate-400 flex items-center gap-1 font-medium mr-1">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-2 border-t border-slate-800/60">
+                <span className="text-xs text-slate-400 flex items-center gap-1 font-medium mr-1 w-full sm:w-auto">
                   <Filter className="w-3.5 h-3.5" /> Severity Filter:
                 </span>
                 {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((lvl) => (
@@ -516,7 +516,7 @@ export default function AdminDashboardPage() {
                     key={lvl}
                     type="button"
                     onClick={() => setPriorityFilter(lvl)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                    className={`px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-semibold transition ${
                       priorityFilter === lvl ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
                     }`}
                   >
@@ -744,21 +744,29 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Category Breakdown Chart */}
-              <Card className="bg-slate-900/80 border-slate-800">
-                <CardHeader>
+              <Card className="bg-slate-900/80 border-slate-800 w-full min-w-0 overflow-hidden">
+                <CardHeader className="p-4 sm:p-6 pb-2">
                   <CardTitle className="text-white text-base flex items-center gap-2">
                     <Layers className="w-4 h-4 text-indigo-400" /> Incident Distribution by Trade Category
                   </CardTitle>
-                  <CardDescription className="text-slate-400 text-xs">Volume of maintenance requests grouped by specialty</CardDescription>
+                  <CardDescription className="text-slate-400 text-xs">Volume of maintenance requests across all 8 campus specialties</CardDescription>
                 </CardHeader>
-                <CardContent className="h-64">
+                <CardContent className="h-72 sm:h-80 w-full min-w-0 p-2 sm:p-6 pt-2">
                   {analytics?.category_stats && analytics.category_stats.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={analytics.category_stats}>
-                        <XAxis dataKey="category" stroke="#64748b" fontSize={12} />
-                        <YAxis stroke="#64748b" fontSize={12} allowDecimals={false} />
+                      <BarChart data={analytics.category_stats} margin={{ top: 10, right: 10, left: -20, bottom: 45 }}>
+                        <XAxis 
+                          dataKey="category" 
+                          stroke="#64748b" 
+                          fontSize={11}
+                          interval={0}
+                          angle={-30}
+                          textAnchor="end"
+                          tick={{ fill: '#94a3b8' }}
+                        />
+                        <YAxis stroke="#64748b" fontSize={11} allowDecimals={false} tick={{ fill: '#94a3b8' }} />
                         <Tooltip
-                          contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }}
+                          contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
                         />
                         <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                           {analytics.category_stats.map((_: any, idx: number) => (

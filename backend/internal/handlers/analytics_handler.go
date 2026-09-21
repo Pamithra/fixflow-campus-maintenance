@@ -77,22 +77,59 @@ func GetAnalytics(c *gin.Context) {
 		}
 	}
 
-	// 3. Category Distribution
-	categories := []string{"HVAC", "Electrical", "IT", "Plumbing", "General"}
+	// 3. Comprehensive Category Distribution across All Job Specialties
+	type SpecialtyDef struct {
+		Name    string
+		SQLCond string
+	}
+
+	specialties := []SpecialtyDef{
+		{
+			Name:    "HVAC / AC",
+			SQLCond: "(assets.category = 'HVAC' OR maintenance_requests.equipment_category ILIKE '%Air Condition%' OR maintenance_requests.equipment_category ILIKE '%HVAC%' OR maintenance_requests.equipment_category ILIKE '%Cooling%')",
+		},
+		{
+			Name:    "Electrical",
+			SQLCond: "(assets.category = 'Electrical' OR maintenance_requests.equipment_category ILIKE '%Electric%' OR maintenance_requests.equipment_category ILIKE '%Light%' OR maintenance_requests.equipment_category ILIKE '%Power%')",
+		},
+		{
+			Name:    "IT / PCs",
+			SQLCond: "(assets.category = 'IT' OR maintenance_requests.equipment_category ILIKE '%Computer%' OR maintenance_requests.equipment_category ILIKE '%PC%' OR maintenance_requests.equipment_category ILIKE '%Workstation%')",
+		},
+		{
+			Name:    "Network / Wi-Fi",
+			SQLCond: "(assets.category = 'Network' OR maintenance_requests.equipment_category ILIKE '%Network%' OR maintenance_requests.equipment_category ILIKE '%Wi-Fi%' OR maintenance_requests.equipment_category ILIKE '%Wifi%')",
+		},
+		{
+			Name:    "AV / Projectors",
+			SQLCond: "(assets.category = 'AV' OR maintenance_requests.equipment_category ILIKE '%Projector%' OR maintenance_requests.equipment_category ILIKE '%Display%' OR maintenance_requests.equipment_category ILIKE '%Screen%')",
+		},
+		{
+			Name:    "Plumbing",
+			SQLCond: "(assets.category = 'Plumbing' OR maintenance_requests.equipment_category ILIKE '%Plumb%' OR maintenance_requests.equipment_category ILIKE '%Washroom%' OR maintenance_requests.equipment_category ILIKE '%Water%' OR maintenance_requests.equipment_category ILIKE '%Pipe%')",
+		},
+		{
+			Name:    "Furniture",
+			SQLCond: "(assets.category = 'Furniture' OR maintenance_requests.equipment_category ILIKE '%Furn%' OR maintenance_requests.equipment_category ILIKE '%Chair%' OR maintenance_requests.equipment_category ILIKE '%Desk%' OR maintenance_requests.equipment_category ILIKE '%Door%')",
+		},
+		{
+			Name:    "General",
+			SQLCond: "(assets.category = 'General' OR maintenance_requests.equipment_category ILIKE '%Other%' OR (assets.category IS NULL AND (maintenance_requests.equipment_category IS NULL OR maintenance_requests.equipment_category = '' OR maintenance_requests.equipment_category = 'General')))",
+		},
+	}
+
 	var categoryStats []CategoryStat
-	for _, cat := range categories {
+	for _, spec := range specialties {
 		var count int64
 		database.DB.Model(&models.MaintenanceRequest{}).
 			Joins("LEFT JOIN assets ON assets.id = maintenance_requests.asset_id").
-			Where("assets.category = ? OR (? = 'General' AND maintenance_requests.asset_id IS NULL)", cat, cat).
+			Where(spec.SQLCond).
 			Count(&count)
 
-		if count > 0 || cat == "HVAC" || cat == "IT" {
-			categoryStats = append(categoryStats, CategoryStat{
-				Category: cat,
-				Count:    count,
-			})
-		}
+		categoryStats = append(categoryStats, CategoryStat{
+			Category: spec.Name,
+			Count:    count,
+		})
 	}
 
 	// 4. Technician Rating & Performance Leaderboard

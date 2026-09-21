@@ -110,20 +110,20 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-16 flex items-center justify-between gap-1 sm:gap-4 w-full">
         
         {/* Brand & Role Pill */}
-        <div className="flex items-center gap-3">
-          <Link href={role === 'ADMIN' ? '/dashboard' : role === 'TECHNICIAN' ? '/tasks' : '/report'} className="flex items-center gap-2 group">
-            <div className="p-2 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 group-hover:scale-105 transition">
-              <Sparkles className="w-5 h-5" />
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <Link href={role === 'ADMIN' ? '/dashboard' : role === 'TECHNICIAN' ? '/tasks' : '/report'} className="flex items-center gap-1.5 sm:gap-2 group">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 group-hover:scale-105 transition">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <span className="font-extrabold text-lg sm:text-xl tracking-tight text-white">
+            <span className="font-extrabold text-base sm:text-xl tracking-tight text-white">
               Fix<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Flow</span>
             </span>
           </Link>
 
-          <Badge className={`hidden sm:inline-flex text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 border ${
+          <Badge className={`hidden md:inline-flex text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 border ${
             role === 'ADMIN' 
               ? 'bg-purple-500/15 border-purple-500/30 text-purple-300' 
               : role === 'TECHNICIAN'
@@ -137,21 +137,21 @@ export default function Navbar() {
         </div>
 
         {/* Role-Based Nav Links */}
-        <nav className="flex items-center gap-1 sm:gap-2">
+        <nav className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* ADMIN LINKS */}
           {role === 'ADMIN' && (
             <Link href="/dashboard">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className={`text-xs gap-1.5 h-8 px-2.5 ${
+                className={`text-xs gap-1 sm:gap-1.5 h-8 px-2 sm:px-2.5 ${
                   pathname === '/dashboard' 
                     ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-medium' 
                     : 'text-slate-300 hover:text-white hover:bg-slate-900'
                 }`}
               >
-                <Shield className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Command</span> Dashboard
+                <Shield className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Dashboard</span>
               </Button>
             </Link>
           )}
@@ -163,28 +163,28 @@ export default function Navbar() {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className={`text-xs gap-1.5 h-8 px-2.5 ${
+                  className={`text-xs gap-1 sm:gap-1.5 h-8 px-2 sm:px-2.5 ${
                     pathname === '/tasks' 
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium' 
                       : 'text-slate-300 hover:text-white hover:bg-slate-900'
                   }`}
                 >
-                  <Wrench className="w-3.5 h-3.5" />
-                  My Tasks
+                  <Wrench className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[11px] sm:text-xs">Tasks</span>
                 </Button>
               </Link>
               <Link href="/report">
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className={`text-xs gap-1.5 h-8 px-2.5 ${
+                  className={`text-xs gap-1 sm:gap-1.5 h-8 px-2 sm:px-2.5 ${
                     pathname === '/report' 
                       ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-medium' 
                       : 'text-slate-300 hover:text-white hover:bg-slate-900'
                   }`}
                 >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  Report Issue
+                  <PlusCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[11px] sm:text-xs">Report</span>
                 </Button>
               </Link>
             </>
@@ -192,7 +192,7 @@ export default function Navbar() {
         </nav>
 
         {/* Right Actions: Notifications Bell & User Profile */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           
           {/* Notification Bell with Popover */}
           <div className="relative" ref={notifRef}>
@@ -290,7 +290,7 @@ export default function Navbar() {
           </div>
 
           {/* User Profile Pill & Sign Out */}
-          <div className="flex items-center gap-2 border-l border-slate-800 pl-2">
+          <div className="flex items-center gap-1 sm:gap-2 border-l border-slate-800 pl-1.5 sm:pl-2">
             <div className="hidden lg:block text-right">
               <div className="text-xs font-semibold text-white truncate max-w-[140px]">{user.full_name}</div>
               <div className="text-[10px] text-slate-400 truncate">{user.phone_number || user.email}</div>
@@ -300,9 +300,10 @@ export default function Navbar() {
               variant="outline"
               size="sm"
               onClick={logout}
-              className="h-8 px-2.5 border-slate-800 hover:bg-slate-900 text-slate-300 hover:text-white text-xs gap-1.5"
+              title="Log out"
+              className="h-8 w-8 sm:w-auto p-0 sm:px-2.5 border-slate-800 hover:bg-slate-900 text-slate-300 hover:text-white text-xs flex items-center justify-center gap-1.5 shrink-0"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>

@@ -256,26 +256,25 @@ export default function TechnicianTasksPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-12 space-y-6 overflow-x-hidden w-full max-w-full">
       <Navbar />
 
-      <main className="max-w-5xl mx-auto px-3 sm:px-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-2.5 sm:px-6 space-y-4 sm:space-y-6 w-full min-w-0 overflow-x-hidden">
         
         {/* Sub-Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-3.5 sm:p-4 rounded-xl border border-slate-800 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-lg border shrink-0 ${isAdmin ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
-              {isAdmin ? <Shield className="w-5 h-5" /> : <Wrench className="w-5 h-5" />}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 bg-slate-900/60 p-3 sm:p-4 rounded-xl border border-slate-800 backdrop-blur w-full min-w-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className={`p-2 sm:p-2.5 rounded-lg border shrink-0 ${isAdmin ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+              {isAdmin ? <Shield className="w-4 h-4 sm:w-5 sm:h-5" /> : <Wrench className="w-4 h-4 sm:w-5 sm:h-5" />}
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-white flex flex-wrap items-center gap-2">
+              <h1 className="text-base sm:text-xl font-bold text-white flex flex-wrap items-center gap-1.5 sm:gap-2">
                 {isAdmin ? 'Campus Maintenance Tasks & Field Work Orders' : 'My Assigned Maintenance Tasks'}
               </h1>
-              <p className="text-xs text-slate-400">
-                Logged in as <strong>{user?.full_name}</strong> •{' '}
+              <p className="text-[11px] sm:text-xs text-slate-400 leading-relaxed">
+                Logged in as <strong className="text-slate-200">{user?.full_name}</strong> •{' '}
                 {isAdmin ? (
-                  <span className="text-purple-400 font-semibold">Campus Maintenance Administrator</span>
+                  <span className="text-purple-400 font-semibold">Campus Administrator</span>
                 ) : (
                   <span className="text-amber-400 font-semibold">{user?.skill_category || 'General'} Technician</span>
                 )}
-                {' '}{isAdmin ? '(Supervising all technician repair jobs across IT Faculty)' : '(Your assigned repair work orders)'}
               </p>
             </div>
           </div>
@@ -285,12 +284,12 @@ export default function TechnicianTasksPage() {
         </div>
 
         {/* Informative Guidance Box */}
-        <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 flex items-start sm:items-center gap-3">
-          <div className={`p-2 rounded-lg shrink-0 ${isAdmin ? 'bg-purple-500/10 text-purple-400' : 'bg-amber-500/10 text-amber-400'}`}>
+        <div className="p-3 sm:p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 flex items-start sm:items-center gap-2.5 sm:gap-3 w-full min-w-0">
+          <div className={`p-1.5 sm:p-2 rounded-lg shrink-0 ${isAdmin ? 'bg-purple-500/10 text-purple-400' : 'bg-amber-500/10 text-amber-400'}`}>
             <Info className="w-4 h-4" />
           </div>
-          <div className="space-y-0.5">
-            <p className="font-semibold text-slate-200">
+          <div className="space-y-0.5 min-w-0">
+            <p className="font-semibold text-slate-200 text-xs">
               {isAdmin ? 'Administrator Field Supervisor Mode' : 'Technician Task Completion Guide'}
             </p>
             <p className="text-slate-400 leading-relaxed text-[11px]">
@@ -303,17 +302,17 @@ export default function TechnicianTasksPage() {
         </div>
 
         {/* Dual Filter Bars */}
-        <div className="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800 backdrop-blur">
+        <div className="space-y-2.5 sm:space-y-3 bg-slate-900/60 p-3 sm:p-4 rounded-xl border border-slate-800 backdrop-blur w-full min-w-0">
           {/* 1. Status Filter Bar */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-slate-400 flex items-center gap-1 font-medium mr-1">
-              <ListFilter className="w-3.5 h-3.5" /> Work Order Status:
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="text-xs text-slate-400 flex items-center gap-1 font-medium mr-1 w-full sm:w-auto">
+              <ListFilter className="w-3.5 h-3.5 text-indigo-400" /> Work Order Status:
             </span>
             {/* All Tasks */}
             <button
               type="button"
               onClick={() => setStatusFilter('ALL')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                 statusFilter === 'ALL'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
@@ -329,7 +328,7 @@ export default function TechnicianTasksPage() {
             <button
               type="button"
               onClick={() => setStatusFilter('OVERDUE')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                 statusFilter === 'OVERDUE'
                   ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
                   : 'bg-slate-900 text-slate-400 hover:text-rose-300 border border-slate-800'
@@ -347,7 +346,7 @@ export default function TechnicianTasksPage() {
               <button
                 type="button"
                 onClick={() => setStatusFilter('PENDING')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                   statusFilter === 'PENDING'
                     ? 'bg-purple-600 text-white shadow-md'
                     : 'bg-slate-900 text-slate-400 hover:text-purple-300 border border-slate-800'
@@ -364,7 +363,7 @@ export default function TechnicianTasksPage() {
             <button
               type="button"
               onClick={() => setStatusFilter('ASSIGNED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                 statusFilter === 'ASSIGNED'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'bg-slate-900 text-slate-400 hover:text-blue-300 border border-slate-800'
@@ -380,7 +379,7 @@ export default function TechnicianTasksPage() {
             <button
               type="button"
               onClick={() => setStatusFilter('IN_PROGRESS')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                 statusFilter === 'IN_PROGRESS'
                   ? 'bg-amber-600 text-white shadow-md'
                   : 'bg-slate-900 text-slate-400 hover:text-amber-300 border border-slate-800'
@@ -396,7 +395,7 @@ export default function TechnicianTasksPage() {
             <button
               type="button"
               onClick={() => setStatusFilter('COMPLETED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                 statusFilter === 'COMPLETED'
                   ? 'bg-emerald-600 text-white shadow-md'
                   : 'bg-slate-900 text-slate-400 hover:text-emerald-300 border border-slate-800'
@@ -412,7 +411,7 @@ export default function TechnicianTasksPage() {
             <button
               type="button"
               onClick={() => setStatusFilter('CLOSED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 ${
                 statusFilter === 'CLOSED'
                   ? 'bg-slate-700 text-white shadow-md'
                   : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
@@ -426,8 +425,8 @@ export default function TechnicianTasksPage() {
           </div>
 
           {/* 2. Priority / Severity Filter Bar */}
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/60">
-            <span className="text-xs text-slate-400 flex items-center gap-1 font-medium mr-1">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-2 border-t border-slate-800/60">
+            <span className="text-xs text-slate-400 flex items-center gap-1 font-medium mr-1 w-full sm:w-auto">
               <Filter className="w-3.5 h-3.5" /> Severity Filter:
             </span>
             {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((lvl) => (
@@ -435,10 +434,8 @@ export default function TechnicianTasksPage() {
                 key={lvl}
                 type="button"
                 onClick={() => setPriorityFilter(lvl)}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
-                  priorityFilter === lvl 
-                    ? 'bg-indigo-600 text-white' 
-                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                className={`px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-semibold transition ${
+                  priorityFilter === lvl ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
                 }`}
               >
                 {lvl}

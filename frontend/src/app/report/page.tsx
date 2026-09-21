@@ -98,6 +98,7 @@ function ReportContent() {
   // UI state
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [qrError, setQrError] = useState('');
   const [myTickets, setMyTickets] = useState<any[]>([]);
   const [smsNotifications, setSmsNotifications] = useState<any[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
@@ -334,11 +335,71 @@ function ReportContent() {
       .catch((err) => console.error('Error loading notifications:', err));
   };
 
-  // Instant QR code resolver (supports database tags and structured category/floor/phase/room)
-  const applyQRTag = async (tag: string) => {
+  // Instant QR code resolver (supports database tags, full URLs, shortlinks, and structured category/floor/phase/room)
+  const applyQRTag = async (rawTag: string) => {
     setQrScanning(true);
+    setQrError('');
 
-    // Check if tag contains structured query parameters or pipe delimiters
+    let tag = rawTag.trim();
+    if (!tag) {
+      setQrScanning(false);
+      return;
+    }
+
+    // 1. If tag is an HTTP/HTTPS URL
+    if (tag.startsWith('http://') || tag.startsWith('https://')) {
+      try {
+        const parsedUrl = new URL(tag);
+        
+        // If it points to /signup with a redirect param (e.g. ?redirect=/report?category=...)
+        const redir = parsedUrl.searchParams.get('redirect');
+        if (redir) {
+          const decodedTarget = decodeURIComponent(redir);
+          const q = decodedTarget.includes('?') ? decodedTarget.split('?')[1] : decodedTarget;
+          const urlParams = new URLSearchParams(q);
+          applyStructuredData({
+            floor: urlParams.get('floor'),
+            phase: urlParams.get('phase') || urlParams.get('building'),
+            room: urlParams.get('room'),
+            category: urlParams.get('category'),
+          });
+          setQrScanning(false);
+          return;
+        }
+
+        // If it points to FixFlow /report directly with query parameters
+        if (
+          parsedUrl.searchParams.get('category') || 
+          parsedUrl.searchParams.get('floor') || 
+          parsedUrl.searchParams.get('room')
+        ) {
+          applyStructuredData({
+            floor: parsedUrl.searchParams.get('floor'),
+            phase: parsedUrl.searchParams.get('phase') || parsedUrl.searchParams.get('building'),
+            room: parsedUrl.searchParams.get('room'),
+            category: parsedUrl.searchParams.get('category'),
+          });
+          setQrScanning(false);
+          return;
+        }
+
+        // If it has a tag param: /report?tag=...
+        const queryTag = parsedUrl.searchParams.get('tag') || parsedUrl.searchParams.get('asset');
+        if (queryTag) {
+          tag = queryTag;
+        } else {
+          // It is an external short URL (e.g. https://qrco.de/bh1XSL)
+          // Directly navigate to it so the browser resolves the 302 redirect
+          window.location.href = tag;
+          return;
+        }
+      } catch (e) {
+        window.location.href = tag;
+        return;
+      }
+    }
+
+    // 2. Check if tag contains structured query parameters or pipe delimiters
     if (tag.includes('=') || tag.includes('&') || tag.includes('|') || tag.includes('?') || tag.toLowerCase().includes('floor') || tag.toLowerCase().includes('phase')) {
       const cleaned = tag.includes('?') ? tag.split('?')[1] : tag;
       const urlParams = new URLSearchParams(cleaned.replace(/\|/g, '&'));
@@ -380,7 +441,8 @@ function ReportContent() {
         const room = parts.slice(parts.length > 2 ? 2 : 1).join(' ');
         applyStructuredData({ floor, phase, room, category: cat });
       } else {
-        alert(`Equipment with QR tag "${tag}" was not recognized.`);
+        setQrError(`Equipment QR tag "${tag}" was not recognized. Please select your room and category manually below.`);
+        setTimeout(() => setQrError(''), 10000);
       }
     } finally {
       setQrScanning(false);
@@ -626,6 +688,13 @@ function ReportContent() {
                   <div className="mb-6 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 flex items-center gap-3 text-xs sm:text-sm animate-in fade-in">
                     <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
                     <span>{successMessage}</span>
+                  </div>
+                )}
+
+                {qrError && (
+                  <div className="mb-6 p-4 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 flex items-center gap-3 text-xs sm:text-sm animate-in fade-in">
+                    <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400" />
+                    <span>{qrError}</span>
                   </div>
                 )}
 

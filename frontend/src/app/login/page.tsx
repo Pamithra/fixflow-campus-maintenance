@@ -23,7 +23,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 function LoginForm() {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get('redirect') || '';
@@ -184,6 +184,27 @@ function LoginForm() {
               ? '📲 Equipment detected via QR! Please log in or create an account to submit your maintenance report.'
               : 'Please log in to continue.'}
           </span>
+        </div>
+      )}
+
+      {/* Already Logged In Quick Proceed Box */}
+      {user && (
+        <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 text-xs space-y-2.5 animate-in fade-in">
+          <div className="flex items-center gap-2 font-semibold text-emerald-300">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            <span>You are already signed in as <strong className="text-white">{user.full_name}</strong></span>
+          </div>
+          <p className="text-slate-300 text-[11px] leading-relaxed">
+            You can proceed directly with this account, or log in with different credentials below.
+          </p>
+          <Button
+            type="button"
+            onClick={() => router.push(redirectUrl || (user.role === 'ADMIN' ? '/dashboard' : user.role === 'TECHNICIAN' ? '/tasks' : '/report'))}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs h-8 flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20"
+          >
+            <span>Proceed to {redirectUrl ? 'Report Issue' : 'Dashboard'}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Button>
         </div>
       )}
 
